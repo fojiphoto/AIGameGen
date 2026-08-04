@@ -28,6 +28,7 @@
 
       <h2>BUILD</h2>
       <div class="card">
+        <div class="note info" id="noToolchain"></div>
         <div id="buildTop" class="row">
           <button id="buildBtn">BUILD APK</button>
           <span class="small" id="costNote"></span>
@@ -81,6 +82,18 @@
         game = out.game;
         $('#title').textContent = `EXPORT — ${game.title}`;
         $('#costNote').textContent = `${m.creditCosts?.build_apk ?? 15} credits · rebuilding the same version is free`;
+
+        // Be straight about it when the host has no Android SDK: an enabled button that
+        // fails five seconds later looks like a broken product, not a missing dependency.
+        if (m.apk && m.apk.available === false) {
+          $('#noToolchain').innerHTML =
+            `<b>APK export is not available on this server.</b><br>${esc(m.apk.reason)}` +
+            `<br><span class="small">Run the project locally with a JDK and the Android SDK, or build APKs in CI — see the README.</span>`;
+          $('#noToolchain').className = 'note info on';
+          $('#buildBtn').disabled = true;
+          $('#buildBtn').textContent = 'APK BUILD UNAVAILABLE';
+        }
+
         if (game.apk) showReady(game.apk);
       }
 

@@ -9,10 +9,45 @@ remixing, an admin console, and a Gradle-free APK build pipeline.
 - Remaining-work plan: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
 - Frontend prompts: [docs/STITCH_PROMPTS.md](docs/STITCH_PROMPTS.md)
 
-**Status:** local SaaS complete and verified — **58 unit tests + 77 end-to-end tests green**,
-after one full audit→fix round that found and closed 4 high-severity defects
-([details](#round-1-results)). One genre (Endless Runner) is live. Deployment, hosting and
-real payments are deliberately deferred.
+**Status:** complete and verified — **72 unit tests + 77 end-to-end tests green** (the e2e
+suite is repeatable back-to-back), after an audit→fix round that found and closed 4
+high-severity defects ([details](#round-1-results)). **Six game templates are live.**
+Real payments and hosting are deliberately deferred; `Dockerfile` + `render.yaml` make
+deployment one click when you want it.
+
+---
+
+## Templates
+
+Pick a template in the studio and watch it get built, or describe a game in free text and
+the closest template is chosen for you.
+
+| Template | Type | How its levels are proven finishable |
+|---|---|---|
+| **Endless Runner** | arcade | Closed-form jump physics: obstacle reachability, landing room, the dead zone between "too close to land" and "too far to clear in one jump" |
+| **Tap-to-Fly** | arcade | Gap-to-gap reachability under flap-only control, plus the opening must fit the body **and** one unavoidable flap bounce |
+| **Memory Match** | board | Arithmetic: even grid, exact pairs, and a clock that beats perfect play |
+| **Sliding Puzzle** | board | Construction: scrambled by N legal moves from solved, so the reverse walk *is* a solution — parity can never be wrong |
+| **2048 Merge** | board | A ceiling: a small board physically cannot build past a certain power of two |
+| **Snake** | arcade | An endgame fit check: a fully grown snake plus walls must still leave room to move |
+
+Coming soon (listed in the UI, not built): Platformer, Match-3, Brick Breaker, Maze Escape.
+
+Adding a seventh is three files plus one registry entry —
+`packages/{schema,generation,engine-runner}/src/genres/<id>.mjs`. `endless_runner` keeps its
+original code path untouched so the APK-verified genre cannot regress as templates are added.
+
+### The build console
+
+Choosing a template opens a paced build log. **The generation is real** — a config is
+chosen, 20 levels are generated, each is simulated to prove it can be finished, and a
+playable bundle is written. That pipeline takes about 100 ms.
+
+The 20–30 second pacing is presentation, and the code says so
+([`buildconsole.js`](apps/web/assets/buildconsole.js)). Every line in the transcript
+describes work that actually happens; none of it claims a language model is running, the
+nav badge always shows `DETERMINISTIC` or `AI MODE`, and the finished panel reports the real
+generator time next to the paced log.
 
 ---
 
@@ -253,15 +288,56 @@ ships a 3-step guide; without it you will drown in support tickets.
 
 ---
 
+## Deploying
+
+```bash
+# Render, free tier, one click:
+#   render.com → New → Blueprint → point at this repo → set ADMIN_PASSWORD
+```
+
+`render.yaml` and `Dockerfile` are committed and ready. **Read this before you deploy:**
+
+**APK export will not work on a free host.** It needs a JDK and the Android SDK — about
+3.5 GB, past every free tier. The server detects this at boot
+([`toolchain.mjs`](apps/api/src/toolchain.mjs)), `/health` reports `apkBuilds: false`, and
+the export page explains it instead of offering a button that fails. Everything else —
+generation, all six templates, in-browser play, the arcade, credits, admin — works fully.
+
+Three ways to get APKs from a deployed instance:
+
+1. **Build locally.** Clone, `npm start`, use the export page. This is what the machine you
+   are reading this on already does.
+2. **Build in CI.** GitHub Actions' `ubuntu-latest` runners ship the Android SDK, so
+   `node tools/build-apk.mjs artifacts/<gameId>` runs there with no extra setup. Upload the
+   APK as an artifact or to object storage.
+3. **Pay for a host with a custom image.** Add the SDK to the Dockerfile and use a paid tier.
+
+Also note on free tiers: the instance sleeps after ~15 minutes idle, and the disk is
+ephemeral unless you attach the volume declared in `render.yaml`. Without it, accounts and
+generated games are lost on every redeploy.
+
+GitHub Pages cannot host this — it serves static files only, and this is a Node server with
+a database.
+
+---
+
 ## Not built yet
 
 | | Why |
 |---|---|
-| **Genres 2–5** (Tap-to-Fly, Platformer, Match-3, Bubble Pop) | Deferred. Needs `GameConfigSchema` converted to a discriminated union plus genre dispatch through `clampNumbers`, the planner, `buildGame`, textures, the engine registry, the bundler payload and the frontend picker. First task next session. |
-| Real Stripe | Local demo uses a mock that writes the same ledger row |
-| Deployment / hosting / domains | Owner's decision to defer |
+| Platformer, Match-3, Brick Breaker, Maze Escape | Registry is ready; these four need a level builder, validator and Phaser scene each. Platformer needs jump-arc pathfinding, Match-3 a Monte-Carlo solver — the two most expensive. |
+| Real Stripe | Mock checkout writes the same ledger row, so switching it on is one handler |
+| Hosting | Config committed, deploy is yours to trigger |
 | Play Store publishing (AAB) | Direct APK download is the shipping path |
 | iOS export | Needs macOS + a paid Apple account |
+
+### Known rough edge
+
+**Tap-to-Fly level 20 is very hard.** A reactive playtest bot clears 19 of 20 levels; the
+analytic validator proves every gap is reachable and every opening fits the body plus a flap
+bounce, but a bang-bang controller is not a skilled player, so level 20 is unproven rather
+than proven-unfair. Widen `gapHeightEnd` in
+[`planner.mjs`](packages/ai/src/planner.mjs) if you want more margin.
 
 Two files are the seams for leaving local dev: `packages/db/src/index.mjs`
 (SQLite → Postgres) and `apps/api/src/queue.mjs` (in-process → BullMQ + Redis).

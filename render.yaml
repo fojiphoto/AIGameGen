@@ -1,0 +1,53 @@
+# One-click deploy to Render's free tier.
+#
+#   1. Push this repo to GitHub (done)
+#   2. render.com -> New -> Blueprint -> point it at this repository
+#   3. Set ADMIN_PASSWORD when it asks. Everything else has a default.
+#
+# Two things to know before you show it to anyone:
+#
+#   * APK export will be unavailable. This service has no JDK or Android SDK, and the app
+#     says so on the export page rather than offering a button that fails. Game generation
+#     and in-browser play work fully.
+#   * The free tier sleeps after ~15 minutes idle and its disk is ephemeral, so accounts and
+#     generated games are lost on redeploy. Attach the disk below (or move to Postgres) if
+#     you need them to survive.
+
+services:
+  - type: web
+    name: forge
+    runtime: docker
+    plan: free
+    region: singapore # closest free region to Pakistan
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8787
+      - key: DB_PATH
+        value: /app/data/forge.db
+      - key: ARTIFACTS_DIR
+        value: /app/artifacts
+      - key: LOG_LEVEL
+        value: warn
+      # Behind Render's proxy, so the real client IP arrives in x-forwarded-for and
+      # per-IP rate limiting needs it. Only ever enable this when a trusted proxy is
+      # actually in front — otherwise anyone can spoof the header.
+      - key: TRUST_PROXY
+        value: 'true'
+      - key: ADMIN_EMAIL
+        value: admin@factorialstudio.com
+      # Prompted on first deploy. Never commit a real one.
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Optional. Leave empty and the rule-based planner runs instead — every feature
+      # still works, including conversational refinement.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+    disk:
+      name: forge-data
+      mountPath: /app/data
+      sizeGB: 1

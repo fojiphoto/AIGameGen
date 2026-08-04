@@ -27,6 +27,7 @@ import {
   generateGame, refineGame, remixGame, publicGame, gameDir, ensureAffordable,
 } from './pipeline.mjs';
 import { buildQueue } from './queue.mjs';
+import { checkToolchain, assertToolchain } from './toolchain.mjs';
 import {
   requireUser, assertCanEdit, assertCanView, limit, clientIp,
   setSessionCookie, clearSessionCookie, validateCredentials,
@@ -66,6 +67,7 @@ export default async function routes(app) {
     mode: hasApiKey() ? 'llm' : 'deterministic',
     liveGenres: IMPLEMENTED_GENRES,
     buildConcurrency: buildQueue.concurrency,
+    apkBuilds: checkToolchain().available,
     uptimeSeconds: Math.round(process.uptime()),
   }));
 
@@ -74,6 +76,7 @@ export default async function routes(app) {
     liveGenres: IMPLEMENTED_GENRES,
     refineExamples: REFINE_EXAMPLES,
     genres: genreCatalogue(),
+    apk: checkToolchain(),
     creditCosts: db.CREDIT_COSTS,
     packs: db.CREDIT_PACKS,
     stats: db.platformStats(),
@@ -333,6 +336,9 @@ export default async function routes(app) {
         });
       }
 
+      // Checked before the rate limit and the charge: a host without the Android SDK must
+      // say so immediately rather than take credits for a build it cannot run.
+      assertToolchain();
       limit(req, 'userBuild');
       ensureAffordable(req.user, 'build_apk');
 
