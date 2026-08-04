@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Games — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <div class="row">
+        <div style="flex: 1">
+          <h1>MY GAMES</h1>
+          <p class="sub" id="sub">Everything you've made.</p>
+        </div>
+        <a class="btn" href="/studio">NEW GAME</a>
+      </div>
+
+      <div class="grid" id="games"><div class="empty">Loading…</div></div>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, $, gameCard, toast } from '/assets/app.js';
+
+      const m = await mountChrome({ active: '/dashboard' });
+
+      const { games } = await api('/api/games').catch(() => ({ games: [] }));
+      const host = $('#games');
+
+      if (!games.length) {
+        host.innerHTML = `<div class="empty">
+          No games yet. <a href="/studio">Generate your first one →</a>
+        </div>`;
+      } else {
+        host.innerHTML = '';
+        for (const g of games) host.append(gameCard(g, { actions: ['play', 'open', 'apk'] }));
+        $('#sub').textContent = `${games.length} game${games.length > 1 ? 's' : ''}${
+          m.user ? '' : ' — sign in to keep these permanently'
+        }.`;
+      }
+
+      if (!m.user && games.length) {
+        toast('Sign up to keep these games permanently.');
+      }
+    </script>
+  </body>
+</html>

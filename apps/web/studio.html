@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Studio — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+    <style>
+      /* template tiles */
+      .tpl {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+        padding: 18px 16px; border-radius: var(--r); cursor: pointer; text-align: left;
+        background: rgba(0, 0, 0, 0.24); border: 1px solid var(--line); color: var(--text);
+        font-family: var(--f-body); transition: transform .12s, border-color .12s, background .12s;
+      }
+      .tpl:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--leaf); background: rgba(124,179,66,.12); }
+      .tpl.soon { opacity: .42; cursor: not-allowed; }
+      .tplIcon { font-size: 26px; line-height: 1.1; }
+      .tplName { font-family: var(--f-disp); font-size: 13.5px; letter-spacing: .3px; }
+      .tplFam { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+      /* build console */
+      #console { display: none; }
+      #console.on { display: block; }
+      .chat {
+        height: 300px; overflow-y: auto; padding: 6px 4px;
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .msg { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.5; }
+      .msg b {
+        flex: none; width: 44px; font-family: var(--f-disp); font-size: 9.5px;
+        letter-spacing: .5px; padding-top: 3px; color: var(--muted);
+      }
+      .msg.bot b { color: var(--leaf2); }
+      .msg.you { opacity: .8; }
+      .msg.you b { color: var(--gold); }
+      .msg span { flex: 1; }
+      .msg.typing span { display: flex; gap: 4px; align-items: center; padding-top: 6px; }
+      .msg.typing i {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--leaf2);
+        display: block; animation: blink 1.1s infinite;
+      }
+      .msg.typing i:nth-child(2) { animation-delay: .18s; }
+      .msg.typing i:nth-child(3) { animation-delay: .36s; }
+      @keyframes blink { 0%, 60%, 100% { opacity: .25 } 30% { opacity: 1 } }
+
+      .pbar { height: 10px; border-radius: 999px; background: rgba(255,255,255,.09); overflow: hidden; margin-top: 4px; }
+      .pbar i { display: block; height: 100%; width: 0; border-radius: 999px;
+                background: linear-gradient(90deg, var(--leaf), var(--gold)); transition: width .35s ease; }
+    </style>
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <h1>PICK A TEMPLATE</h1>
+      <p class="sub">
+        Choose a game type and we'll build you a complete one — 20 levels, every level
+        verified finishable, playable here and exportable as an offline Android APK.
+      </p>
+
+      <div id="templates"></div>
+
+      <!-- build console -->
+      <div id="console">
+        <h2>BUILD LOG</h2>
+        <div class="card">
+          <div class="row" style="margin-bottom: 12px">
+            <b id="consoleTitle" style="font-family: var(--f-disp); font-size: 15px"></b>
+            <span class="grow" style="flex: 1"></span>
+            <span class="pill" id="modeNote"></span>
+          </div>
+          <div class="chat" id="chat"></div>
+          <div class="pbar"><i id="barFill"></i></div>
+          <p class="small" style="margin-top: 8px" id="barText">Starting…</p>
+          <div class="note err" id="err"></div>
+        </div>
+      </div>
+
+      <!-- finished game -->
+      <div id="resultWrap" hidden>
+        <h2>YOUR GAME</h2>
+        <div class="card" style="padding: 12px">
+          <iframe class="game" id="resultFrame" title="your game"></iframe>
+        </div>
+        <div class="row" style="margin-top: 14px">
+          <a class="btn leaf" id="openBtn" href="#">OPEN &amp; TWEAK</a>
+          <a class="btn" id="exportBtn" href="#">DOWNLOAD APK</a>
+          <button class="ghost" id="againBtn">BUILD ANOTHER</button>
+        </div>
+        <p class="small" id="realNote" style="margin-top: 10px"></p>
+      </div>
+
+      <h2>OR DESCRIBE IT YOURSELF</h2>
+      <div class="card">
+        <div class="row">
+          <input id="prompt" type="text" style="flex: 1; min-width: 260px"
+                 placeholder="neon cyberpunk runner with a robot, make it hard" />
+          <button class="ghost" id="go">GENERATE</button>
+        </div>
+        <p class="small" style="margin-top: 10px">
+          Free-text still works — it picks the closest template automatically.
+        </p>
+        <div class="stages" id="stages"></div>
+        <div class="note err" id="err2"></div>
+      </div>
+
+      <h2>COSTS</h2>
+      <div class="grid tiles" id="costs"></div>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, meta, refreshCredits, $, streamGenerate, toast, toastError, esc } from '/assets/app.js';
+      import { runBuild, templateGrid, randomTheme } from '/assets/buildconsole.js';
+
+      const m = await mountChrome({ active: '/studio' });
+
+      // ── templates ──────────────────────────────────────────────────────────
+      const genres = m.genres ?? [];
+      $('#templates').append(templateGrid(genres, start));
+      $('#modeNote').textContent = m.mode === 'llm' ? 'AI MODE' : 'DETERMINISTIC';
+
+      const COSTS = m.creditCosts || {};
+      $('#costs').innerHTML = [
+        ['generate', 'NEW GAME'], ['refine', 'TWEAK'], ['build_apk', 'APK BUILD'], ['remix', 'REMIX'],
+      ].map(([k, label]) => `
+        <div class="tile"><div class="n">${COSTS[k] ?? '—'}</div><div class="c">${label} · credits</div></div>
+      `).join('');
+
+      let running = false;
+
+      async function start(genre) {
+        if (running) return;
+        running = true;
+        $('#resultWrap').hidden = true;
+        $('#err').className = 'note err';
+        $('#console').className = 'on';
+        const theme = randomTheme();
+        $('#consoleTitle').textContent = `${genre.label.toUpperCase()} · ${theme.toUpperCase()}`;
+        $('#console').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        const out = await runBuild({
+          genre: genre.id,
+          label: genre.label,
+          prompt: theme,
+          log: $('#chat'),
+          barFill: $('#barFill'),
+          barText: $('#barText'),
+          seconds: 26,
+        });
+
+        running = false;
+
+        if (!out.ok) {
+          $('#err').innerHTML = esc(out.error.error || 'Build failed.') +
+            (out.error.code === 'INSUFFICIENT_CREDITS' ? ' <a href="/billing">Top up →</a>' : '') +
+            (out.error.code === 'RATE_LIMITED' ? ' Wait a few minutes and try again.' : '');
+          $('#err').className = 'note err on';
+          return;
+        }
+
+        const g = out.game;
+        $('#resultFrame').src = g.playUrl;
+        $('#openBtn').href = `/game/${g.id}`;
+        $('#exportBtn').href = `/export/${g.id}`;
+        $('#realNote').textContent =
+          `${g.report?.levelsBuilt ?? 20} levels · ${g.report?.totalObstacles ?? 0} elements verified · ` +
+          `generator ran in ${out.realMs} ms (the log above is paced for readability)`;
+        $('#resultWrap').hidden = false;
+        $('#resultWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        toast(`"${g.title}" is ready.`);
+        refreshCredits().catch(() => {});
+      }
+
+      $('#againBtn').addEventListener('click', () => {
+        $('#resultWrap').hidden = true;
+        $('#console').className = '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      // ── free-text path (unchanged behaviour) ───────────────────────────────
+      function generate() {
+        const prompt = $('#prompt').value.trim();
+        if (prompt.length < 3) { toast('Describe your game first.', 'err'); return; }
+        $('#err2').className = 'note err';
+        $('#go').disabled = true;
+        $('#resultWrap').hidden = true;
+        $('#console').className = '';
+
+        streamGenerate(prompt, {
+          box: $('#stages'),
+          onDone: ({ game, notes }) => {
+            $('#go').disabled = false;
+            $('#resultFrame').src = game.playUrl;
+            $('#openBtn').href = `/game/${game.id}`;
+            $('#exportBtn').href = `/export/${game.id}`;
+            $('#realNote').textContent = notes?.join(' · ') ?? '';
+            $('#resultWrap').hidden = false;
+            $('#resultWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            toast(`"${game.title}" is ready.`);
+            refreshCredits().catch(() => {});
+          },
+          onError: (payload) => {
+            $('#go').disabled = false;
+            $('#stages').className = 'stages';
+            $('#err2').innerHTML = esc(payload.error) +
+              (payload.code === 'INSUFFICIENT_CREDITS' ? ' <a href="/billing">Top up →</a>' : '');
+            $('#err2').className = 'note err on';
+          },
+        });
+      }
+      $('#go').addEventListener('click', generate);
+      $('#prompt').addEventListener('keydown', (e) => e.key === 'Enter' && generate());
+    </script>
+  </body>
+</html>

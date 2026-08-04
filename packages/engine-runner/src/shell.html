@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit + user-scalable=no: a game must not pinch-zoom or double-tap-zoom -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="__BG__" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>__TITLE__</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        background: __BG__;
+        /* block the pull-to-refresh and text-selection gestures that ruin touch games */
+        overscroll-behavior: none;
+        -webkit-user-select: none; user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      #game { width: 100%; height: 100%; display: grid; place-items: center; }
+      #game canvas { display: block; }
+      #boot {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        font: 600 13px system-ui, Roboto, sans-serif; letter-spacing: 0.16em;
+        color: __TEXT__; background: __BG__; z-index: 5;
+      }
+      #boot.gone { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="boot">LOADING</div>
+    <div id="game"></div>
+    <script>
+      window.__GAME__ = __PAYLOAD__;
+    </script>
+    <script src="game.js"></script>
+    <script>
+      // hide the boot splash once Phaser has produced a canvas
+      (function () {
+        var tries = 0;
+        var iv = setInterval(function () {
+          if (document.querySelector('#game canvas') || ++tries > 100) {
+            var b = document.getElementById('boot');
+            if (b) b.className = 'gone';
+            clearInterval(iv);
+          }
+        }, 50);
+      })();
+    </script>
+  </body>
+</html>

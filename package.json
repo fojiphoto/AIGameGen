@@ -1,0 +1,38 @@
+{
+  "name": "factorial-forge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI 2D Game Generator — prompt to playable game to offline Android APK",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"packages/*/test/*.test.mjs\"",
+    "e2e": "node tools/e2e.mjs",
+    "build:engine": "node packages/engine-runner/build.mjs",
+    "start": "node apps/api/src/server.mjs",
+    "api": "node apps/api/src/server.mjs",
+    "generate": "node tools/generate.mjs",
+    "apk": "node tools/build-apk.mjs",
+    "slice": "node tools/slice.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "dependencies": {
+    "fastify": "^5.2.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/static": "^8.0.4",
+    "phaser": "^3.87.0",
+    "zod": "^3.24.1"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

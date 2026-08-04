@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Arcade — Forge</title>
+    <meta name="description" content="Play games other people generated. Remix any of them into your own." />
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <h1>ARCADE</h1>
+      <p class="sub">Play anything. Remix anything — a remix forks the exact game you just played into your account.</p>
+
+      <div class="chips" style="margin-bottom: 10px" id="sorts"></div>
+      <div class="chips" style="margin-bottom: 22px" id="genres"></div>
+
+      <div class="grid" id="games"><div class="empty">Loading…</div></div>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, $, gameCard, esc } from '/assets/app.js';
+
+      const m = await mountChrome({ active: '/arcade' });
+
+      const SORTS = [['trending', 'Trending'], ['new', 'New'], ['played', 'Most played'], ['remixed', 'Most remixed']];
+      // Only genres that can actually be built get a filter chip.
+      const GENRES = [['', 'All genres'], ...(m.genres ?? []).filter((g) => g.live).map((g) => [g.id, g.label])];
+
+      let sort = 'trending';
+      let genre = '';
+
+      function renderFilters() {
+        $('#sorts').innerHTML = SORTS.map(
+          ([v, l]) => `<span class="chip ${sort === v ? 'on' : ''}" data-sort="${v}">${l}</span>`
+        ).join('');
+        $('#genres').innerHTML = GENRES.map(
+          ([v, l]) => `<span class="chip ${genre === v ? 'on' : ''}" data-genre="${v}">${l}</span>`
+        ).join('');
+      }
+
+      async function load() {
+        renderFilters();
+        const host = $('#games');
+        host.innerHTML = '<div class="empty">Loading…</div>';
+        const q = new URLSearchParams({ sort, ...(genre ? { genre } : {}) });
+        const { games } = await api(`/api/arcade?${q}`).catch(() => ({ games: [] }));
+        if (!games.length) {
+          host.innerHTML = `<div class="empty">
+            Nothing published yet. <a href="/studio">Make something and publish it →</a>
+          </div>`;
+          return;
+        }
+        host.innerHTML = '';
+        for (const g of games) {
+          host.append(gameCard(g, { showAuthor: true, actions: ['play', 'remix', 'apk', 'report'] }));
+        }
+      }
+
+      document.addEventListener('click', (e) => {
+        const s = e.target.dataset?.sort;
+        const g = e.target.dataset?.genre;
+        if (s !== undefined && s !== null) { sort = s; load(); }
+        else if (g !== undefined && g !== null) { genre = g; load(); }
+      });
+
+      load();
+    </script>
+  </body>
+</html>

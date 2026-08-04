@@ -1,0 +1,19 @@
+{
+  "name": "@forge/generation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./physics": "./src/physics.mjs",
+    "./curve": "./src/curve.mjs",
+    "./genres": "./src/genres/index.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@forge/schema": "*"
+  }
+}

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Forge — one command, a whole game | Factorial Studio</title>
+    <meta name="description" content="Describe a game in one sentence. Get 20 validated levels, an endless mode, and a signed Android APK that works offline. Every level proven beatable before it ships." />
+    <meta property="og:title" content="Forge — one command, a whole game" />
+    <meta property="og:description" content="Describe a game. Get 20 levels and a signed offline Android APK." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <span class="pill live">BY FACTORIAL STUDIO</span>
+      <h1 style="margin-top: 14px">ONE COMMAND.<br />A WHOLE GAME.<br />IN YOUR POCKET.</h1>
+      <p class="sub">
+        Describe a game in one sentence. Get 20 levels, an endless mode, and a signed Android
+        APK that runs with no internet. Every level is proven beatable before you ever see it.
+      </p>
+      <div class="row" style="margin-bottom: 30px">
+        <a class="btn" href="/studio">CREATE A GAME</a>
+        <a class="btn ghost" href="/arcade">PLAY THE ARCADE</a>
+      </div>
+
+      <div class="card" style="padding: 12px">
+        <div id="demoHost">
+          <div class="empty">Loading a live demo…</div>
+        </div>
+      </div>
+      <p class="small" style="margin-top: 8px; text-align: center" id="demoCaption">
+        Playable right now. No signup, no video.
+      </p>
+
+      <h2>HOW IT WORKS</h2>
+      <div class="grid">
+        <div class="card flat"><h3>01 DESCRIBE IT</h3><p class="small">One sentence, any theme. English or Roman Urdu — both work.</p></div>
+        <div class="card flat"><h3>02 WE VALIDATE</h3><p class="small">20 levels generated, then each one simulated against real jump physics before it ships.</p></div>
+        <div class="card flat"><h3>03 SHIP IT</h3><p class="small">A playable link, and a signed offline APK in about five seconds.</p></div>
+      </div>
+
+      <h2>THE PART NOBODY ELSE DOES</h2>
+      <div class="card">
+        <h3 style="font-size: 22px">EVERY LEVEL IS PROVEN BEATABLE.</h3>
+        <p class="sub" style="margin: 10px 0 0">
+          Most AI game tools hand you levels nobody tested. We simulate every level headlessly
+          before it ships — obstacle reachability, jump-arc clearance, landing room between
+          obstacles, reaction time. If a level cannot be beaten, it is re-seeded until it can be.
+          A player never sees an impossible level.
+        </p>
+      </div>
+
+      <h2>GENRES</h2>
+      <div class="grid tiles" id="genres"></div>
+
+      <h2>BY THE NUMBERS</h2>
+      <div class="grid tiles" id="stats"></div>
+
+      <h2>PRICING</h2>
+      <div class="grid" id="packs"></div>
+      <p class="small" style="margin-top: 10px">
+        Free tier: 3 games, unlimited web play, no APK export. Credits never expire.
+      </p>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, meta, gameCard, playModal, esc } from '/assets/app.js';
+
+      const m = await mountChrome({ active: '' });
+
+      // live demo — the first public arcade game, embedded and playable immediately
+      try {
+        const { games } = await api('/api/arcade?sort=trending&limit=1');
+        const host = document.getElementById('demoHost');
+        if (games.length) {
+          const g = games[0];
+          host.innerHTML = `<iframe class="game" src="${g.playUrl}" title="${esc(g.title)}"></iframe>`;
+          document.getElementById('demoCaption').textContent =
+            `"${g.title}" — generated from a prompt. Playable right now, no signup.`;
+        } else {
+          host.innerHTML = `<div class="empty">No public games yet. <a href="/studio">Generate the first one →</a></div>`;
+        }
+      } catch {
+        document.getElementById('demoHost').innerHTML = `<div class="empty">Demo unavailable.</div>`;
+      }
+
+      // Driven by the server's genre registry, so this list can never drift from what the
+      // studio can actually build.
+      document.getElementById('genres').innerHTML = (m.genres ?? []).map(
+        (g) => `
+        <div class="tile" style="${g.live ? '' : 'opacity:.5'}">
+          <div class="n" style="font-size:15px">${esc(g.label)}</div>
+          <div class="c">${g.live ? '<span style="color:var(--leaf2)">LIVE</span>' : 'COMING SOON'}</div>
+        </div>`
+      ).join('');
+
+      const s = m.stats || {};
+      const TILES = [
+        ['0.35 MB', 'APK SIZE'],
+        ['~5s', 'BUILD TIME'],
+        ['20', 'LEVELS PER GAME'],
+        ['0', 'PERMISSIONS'],
+        [String(s.games ?? 0), 'GAMES MADE'],
+        [String(s.plays ?? 0), 'PLAYS'],
+      ];
+      document.getElementById('stats').innerHTML = TILES.map(
+        ([n, c]) => `<div class="tile"><div class="n">${n}</div><div class="c">${c}</div></div>`
+      ).join('');
+
+      document.getElementById('packs').innerHTML = [
+        { id: 'free', label: 'Free', priceUsd: 0, credits: 30, note: '3 games · web play · no APK' },
+        ...(m.packs ?? []),
+      ].map((p) => `
+        <div class="card flat" style="${p.popular ? 'border-color:var(--gold)' : ''}">
+          ${p.popular ? '<span class="tag">MOST POPULAR</span>' : ''}
+          <h3 style="margin-top:8px">${p.label}</h3>
+          <div class="n" style="font-family:var(--f-disp);font-size:30px;color:var(--leaf2)">
+            ${p.priceUsd ? '$' + p.priceUsd : 'FREE'}
+          </div>
+          <p class="small" style="margin:6px 0 14px">${p.credits} credits${p.note ? ' · ' + p.note : ''}</p>
+          <a class="btn ${p.popular ? '' : 'ghost'} sm wide" href="${m.user ? '/billing' : '/signup'}">
+            ${p.priceUsd ? 'GET CREDITS' : 'START FREE'}
+          </a>
+        </div>`).join('');
+    </script>
+  </body>
+</html>

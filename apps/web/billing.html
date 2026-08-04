@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Credits — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <h1>CREDITS</h1>
+      <p class="sub">Credits pay for generation and APK builds. They never expire.</p>
+
+      <div class="note info on" style="display: block">
+        <b>Local demo.</b> Checkout is mocked — no card is taken and no payment is processed.
+        A real Stripe webhook writes exactly the same ledger row, so switching it on is one handler.
+      </div>
+
+      <div id="body"></div>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, meta, $, esc, toast, toastError, fmtDate } from '/assets/app.js';
+
+      const m = await mountChrome({ active: '/billing' });
+
+      if (!m.user) {
+        $('#body').innerHTML = `<div class="empty" style="margin-top:20px">
+          <a href="/login?next=/billing">Sign in</a> to see your credits.
+        </div>`;
+      } else {
+        render();
+      }
+
+      async function render() {
+        const b = await api('/api/billing');
+
+        const costRows = Object.entries(b.costs)
+          .map(([k, v]) => `<tr><td>${esc(k.replace(/_/g, ' '))}</td><td>${v} credits</td></tr>`)
+          .join('');
+
+        $('#body').innerHTML = `
+          <div class="grid tiles" style="margin-top:22px">
+            <div class="tile"><div class="n">${b.balance}</div><div class="c">credits available</div></div>
+            ${Object.entries(b.costs).slice(0, 3).map(([k, v]) =>
+              `<div class="tile"><div class="n">${v}</div><div class="c">${esc(k.replace(/_/g, ' '))}</div></div>`
+            ).join('')}
+          </div>
+
+          <h2>TOP UP</h2>
+          <div class="grid" id="packs">
+            ${b.packs.map((p) => `
+              <div class="card flat" style="${p.popular ? 'border-color:var(--gold)' : ''}">
+                ${p.popular ? '<span class="tag">MOST POPULAR</span>' : ''}
+                <h3 style="margin-top:8px">${esc(p.label)}</h3>
+                <div style="font-family:var(--f-disp);font-size:30px;color:var(--leaf2)">$${p.priceUsd}</div>
+                <p class="small" style="margin:6px 0 14px">${p.credits} credits
+                  · $${(p.priceUsd / p.credits).toFixed(3)}/credit</p>
+                <button class="${p.popular ? '' : 'ghost'} sm wide" data-pack="${p.id}">BUY (MOCK)</button>
+              </div>`).join('')}
+          </div>
+
+          <h2>WHAT THINGS COST</h2>
+          <div class="card scrollx"><table><tbody>${costRows}</tbody></table></div>
+
+          <h2>HISTORY</h2>
+          <div class="card scrollx">
+            <table>
+              <thead><tr><th>When</th><th>Reason</th><th>Change</th><th>Balance</th></tr></thead>
+              <tbody>
+                ${b.ledger.map((r) => `<tr>
+                  <td class="small">${fmtDate(r.created_at)}</td>
+                  <td>${esc(r.reason)}</td>
+                  <td style="color:${r.delta >= 0 ? 'var(--leaf2)' : 'var(--orange)'}">
+                    ${r.delta >= 0 ? '+' : ''}${r.delta}</td>
+                  <td>${r.balance_after}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+
+        $('#packs').addEventListener('click', async (e) => {
+          const packId = e.target.dataset?.pack;
+          if (!packId) return;
+          e.target.disabled = true;
+          e.target.textContent = 'PROCESSING…';
+          try {
+            const out = await api('/api/billing/checkout', { method: 'POST', body: { packId } });
+            toast(`+${out.pack.credits} credits added.`);
+            await meta(true);
+            location.reload();
+          } catch (ex) {
+            e.target.disabled = false;
+            e.target.textContent = 'BUY (MOCK)';
+            toastError(ex);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

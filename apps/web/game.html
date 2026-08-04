@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Game — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <div id="head"></div>
+
+      <div class="card" style="padding: 12px; margin-top: 14px">
+        <iframe class="game" id="frame" title="game"></iframe>
+      </div>
+
+      <div class="row" style="margin-top: 14px" id="actions"></div>
+
+      <h2>TWEAK IT</h2>
+      <div class="card">
+        <div class="row">
+          <input id="instr" placeholder="make it harder" style="flex: 1; min-width: 240px" />
+          <button id="applyBtn">APPLY</button>
+        </div>
+        <div class="chips" style="margin-top: 12px" id="refineChips"></div>
+        <div class="note err" id="err"></div>
+        <div class="note ok" id="ok"></div>
+        <p class="small" style="margin-top: 12px">
+          Changes are applied as a minimal patch — everything you already liked is preserved.
+          A change that would make any level unbeatable is rejected instead of shipped.
+        </p>
+      </div>
+
+      <h2>DIFFICULTY LADDER</h2>
+      <div class="card scrollx"><table id="ladder"></table></div>
+
+      <h2>VERSIONS</h2>
+      <div class="card scrollx"><table id="versions"></table></div>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, meta, refreshCredits, $, esc, toast, toastError, fmtBytes, fmtDate } from '/assets/app.js';
+
+      const m = await mountChrome();
+      const id = location.pathname.split('/').pop();
+
+      let state = null;
+
+      async function load() {
+        const out = await api(`/api/games/${id}`).catch((e) => { toastError(e); return null; });
+        if (!out) { document.querySelector('main').innerHTML = '<div class="empty">Game not found.</div>'; return; }
+        state = out;
+        render();
+      }
+
+      function render() {
+        const g = state.game;
+        const p = g.palette;
+        $('#frame').src = g.playUrl + '?v=' + g.version;
+
+        $('#head').innerHTML = `
+          <div class="row" style="align-items:flex-start">
+            <div style="flex:1">
+              <h1 style="font-size:clamp(24px,4vw,38px)">${esc(g.title)}</h1>
+              <p class="sub" style="margin-bottom:8px">${esc(g.tagline || '')}</p>
+              <div class="chips">
+                <span class="pill">v${g.version}</span>
+                <span class="pill">${esc(g.genre.replace(/_/g, ' '))}</span>
+                <span class="pill">${g.source}</span>
+                <span class="pill ${g.isPublic ? 'live' : ''}">${g.isPublic ? 'PUBLIC' : 'PRIVATE'}</span>
+                <span class="pill">${g.playCount} plays</span>
+                ${g.report ? `<span class="pill live">${g.report.levelsBuilt}/20 valid · ${g.report.totalObstacles} obstacles</span>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:4px">
+              ${['bg','bgAccent','ground','player','obstacle','accent'].map(
+                (k) => `<i title="${k}" style="width:22px;height:38px;border-radius:6px;display:block;background:${p[k]}"></i>`
+              ).join('')}
+            </div>
+          </div>`;
+
+        $('#actions').innerHTML = `
+          <a class="btn" href="/export/${g.id}">${g.apk ? `DOWNLOAD APK · ${fmtBytes(g.apk.bytes)}` : 'BUILD APK'}</a>
+          <button class="ghost" id="pubBtn">${g.isPublic ? 'MAKE PRIVATE' : 'PUBLISH TO ARCADE'}</button>
+          <button class="ghost" id="delBtn">DELETE</button>`;
+
+        $('#pubBtn').onclick = async () => {
+          try {
+            await api(`/api/games/${g.id}/visibility`, {
+              method: 'POST', body: { visibility: g.isPublic ? 'private' : 'public' },
+            });
+            toast(g.isPublic ? 'Made private.' : 'Published to the arcade.');
+            load();
+          } catch (e) { toastError(e); }
+        };
+        $('#delBtn').onclick = async () => {
+          if (!confirm(`Delete "${g.title}"? This cannot be undone.`)) return;
+          try {
+            await api(`/api/games/${g.id}`, { method: 'DELETE' });
+            location.href = '/dashboard';
+          } catch (e) { toastError(e); }
+        };
+
+        // ladder
+        const ladder = g.ladder ?? [];
+        if (ladder.length) {
+          const max = Math.max(...ladder.map((l) => l.speed));
+          $('#ladder').innerHTML =
+            `<thead><tr><th>Lv</th><th>Speed</th><th>Target</th><th>Secs</th><th>Ramp</th><th>Note</th></tr></thead><tbody>` +
+            ladder.map((l) => `<tr>
+                <td>${l.level}</td>
+                <td>${Math.round(l.speed)}</td>
+                <td>${l.targetMetres} m</td>
+                <td>${l.estSeconds}s</td>
+                <td><div class="bar"><i style="width:${(l.speed / max) * 100}%"></i></div></td>
+                <td>${l.isRelief ? '<span class="tag relief">relief</span>'
+                  : l.newObstacles?.length ? `<span class="tag">+${esc(l.newObstacles.join(', '))}</span>` : ''}</td>
+              </tr>`).join('') + '</tbody>';
+        } else {
+          $('#ladder').innerHTML = '<tbody><tr><td class="small">No ladder recorded for this version.</td></tr></tbody>';
+        }
+
+        // versions
+        $('#versions').innerHTML =
+          `<thead><tr><th>Version</th><th>Change</th><th>When</th></tr></thead><tbody>` +
+          (state.versions ?? []).map((v) => `<tr>
+              <td>v${v.version}${v.version === g.version ? ' <span class="tag relief">current</span>' : ''}</td>
+              <td>${esc(v.summary || '—')}</td>
+              <td class="small">${fmtDate(v.created_at)}</td>
+            </tr>`).join('') + '</tbody>';
+      }
+
+      const REFINE = (m.refineExamples ?? ['make it harder', 'make it easier', 'change to space theme', 'add double jump']);
+      $('#refineChips').innerHTML = REFINE.map((r) => `<span class="chip">${esc(r)}</span>`).join('');
+      $('#refineChips').addEventListener('click', (e) => {
+        if (!e.target.classList.contains('chip')) return;
+        $('#instr').value = e.target.textContent;
+        $('#instr').focus();
+      });
+
+      async function applyRefine() {
+        const instruction = $('#instr').value.trim();
+        if (instruction.length < 2) return;
+        const btn = $('#applyBtn');
+        btn.disabled = true;
+        btn.textContent = 'APPLYING…';
+        $('#err').className = 'note err';
+        $('#ok').className = 'note ok';
+        try {
+          const out = await api(`/api/games/${id}/refine`, { method: 'POST', body: { instruction } });
+          $('#ok').textContent = out.summary;
+          $('#ok').className = 'note ok on';
+          $('#instr').value = '';
+          await load();
+          refreshCredits().catch(() => {});
+        } catch (ex) {
+          $('#err').innerHTML = esc(ex.error || ex.message) +
+            (ex.examples ? `<br><span class="small">Try: ${ex.examples.slice(0, 5).map(esc).join(' · ')}</span>` : '');
+          $('#err').className = 'note err on';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'APPLY';
+        }
+      }
+      $('#applyBtn').addEventListener('click', applyRefine);
+      $('#instr').addEventListener('keydown', (e) => e.key === 'Enter' && applyRefine());
+
+      load();
+    </script>
+  </body>
+</html>

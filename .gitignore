@@ -1,0 +1,32 @@
+node_modules/
+dist/
+out/
+.env
+.env.local
+
+# generated artifacts (every one of these is reproducible from a prompt)
+artifacts/
+artifacts-*/
+packages/engine-runner/dist/
+
+# sqlite database (WAL mode creates the -wal/-shm siblings)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/assets/public/
+# signing keys must never be committed — losing control of a keystore means anyone can
+# ship an update that Android will accept as yours
+*.keystore
+*.jks
+android/keys/
+
+# os
+Thumbs.db
+.DS_Store

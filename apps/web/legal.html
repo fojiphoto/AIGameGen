@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Legal — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+    <style>
+      main.wrap p, main.wrap li { color: var(--muted); font-size: 14px; margin-bottom: 10px; }
+      main.wrap h3 { margin-top: 26px; }
+      main.wrap ul { margin-left: 20px; }
+    </style>
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+    <main class="wrap narrow" id="body"></main>
+
+    <script type="module">
+      import { mountChrome, $ } from '/assets/app.js';
+      await mountChrome();
+
+      const TERMS = `
+        <h1>TERMS OF SERVICE</h1>
+        <p class="small">Last updated 3 August 2026 · Factorial Studio Private Limited, Lahore, Pakistan.</p>
+
+        <h3>1. What Forge does</h3>
+        <p>Forge generates 2D games from a text description and can package them as Android
+        applications. Games are produced by combining a hand-built game engine with configuration
+        chosen for your prompt.</p>
+
+        <h3>2. Who owns what</h3>
+        <ul>
+          <li><b>You own</b> your prompt, the configuration generated for it, and the resulting game.
+              You may publish and distribute the games you create, including commercially.</li>
+          <li><b>We own</b> the game engine, the platform and the tooling. Exporting a game licenses
+              you to distribute the compiled output — it does not transfer the engine source.</li>
+          <li><b>No exclusivity.</b> Games are generated procedurally. Another user may produce a
+              similar game from a similar prompt, and we make no claim otherwise.</li>
+        </ul>
+
+        <h3>3. Acceptable use</h3>
+        <p>You may not use Forge to create games that infringe someone else's intellectual property,
+        depict real identifiable people without consent, or contain sexual, hateful or illegal
+        content. Prompts requesting protected characters or franchises are blocked automatically,
+        and published games can be reported and removed.</p>
+
+        <h3>4. Publishing to app stores</h3>
+        <p>You are responsible for anything you publish. Note that Google Play's spam policy
+        restricts bulk-published, near-identical apps; we cannot guarantee any generated game will
+        be accepted, and rejection is not grounds for a refund.</p>
+
+        <h3>5. Credits</h3>
+        <p>Credits pay for generation and builds. They are charged only when an operation succeeds;
+        a failed generation or build is refunded automatically. Credits do not expire and have no
+        cash value.</p>
+
+        <h3>6. Availability and liability</h3>
+        <p>The service is provided as-is, without warranty. To the extent permitted by law our
+        liability is limited to the amount you paid in the previous three months.</p>
+
+        <h3>7. Contact</h3>
+        <p>Questions: <a href="mailto:qasim@factorialstudio.com">qasim@factorialstudio.com</a></p>`;
+
+      const PRIVACY = `
+        <h1>PRIVACY POLICY</h1>
+        <p class="small">Last updated 3 August 2026 · Factorial Studio Private Limited.</p>
+
+        <h3>What we store</h3>
+        <ul>
+          <li>Your email address and a salted hash of your password. We never store the password.</li>
+          <li>The prompts you write and the games generated from them.</li>
+          <li>A credit ledger recording what you were charged and why.</li>
+          <li>Anonymous gameplay counts (level attempts, clears, deaths) used to tune difficulty.</li>
+        </ul>
+
+        <h3>Cookies</h3>
+        <p>One essential cookie keeps you signed in. A second identifies your browser so a game you
+        made before signing up can be moved into your account. Nothing else is set unless you opt in
+        via the consent banner.</p>
+
+        <h3>Exported apps collect nothing</h3>
+        <p>An APK you export requests <b>no Android permissions at all — not even internet access</b>.
+        It cannot send data anywhere. This is enforced by the build, not by policy.</p>
+
+        <h3>Third parties</h3>
+        <p>When AI generation is enabled, prompts are sent to Anthropic for processing. Nothing else
+        is shared with anyone. We do not sell data.</p>
+
+        <h3>Your rights</h3>
+        <p>You can delete any game at any time, which removes it and its versions permanently.
+        To delete your account and all associated data, email
+        <a href="mailto:qasim@factorialstudio.com">qasim@factorialstudio.com</a>.</p>`;
+
+      $('#body').innerHTML = location.pathname === '/privacy' ? PRIVACY : TERMS;
+      document.title = (location.pathname === '/privacy' ? 'Privacy' : 'Terms') + ' — Forge';
+    </script>
+  </body>
+</html>

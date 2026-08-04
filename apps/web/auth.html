@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap narrow">
+      <h1 id="title">SIGN IN</h1>
+      <p class="sub" id="sub">Welcome back.</p>
+
+      <div class="card">
+        <form id="form">
+          <div class="field" id="nameField" hidden>
+            <label for="displayName">Display name</label>
+            <input id="displayName" name="displayName" autocomplete="nickname" placeholder="What should we call you?" />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="you@studio.com" />
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required minlength="8"
+                   autocomplete="current-password" placeholder="At least 8 characters" />
+          </div>
+          <button class="wide" id="submitBtn" type="submit">SIGN IN</button>
+        </form>
+        <div class="note err" id="err"></div>
+        <p class="small" style="margin-top: 16px" id="switch"></p>
+      </div>
+
+      <p class="small" style="margin-top: 18px">
+        New accounts get <b>30 free credits</b> — enough for three games. Anything you made
+        before signing up is moved into your account automatically.
+      </p>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, $, toast } from '/assets/app.js';
+
+      await mountChrome();
+
+      const isSignup = location.pathname === '/signup';
+      const next = new URLSearchParams(location.search).get('next') || '/studio';
+
+      if (isSignup) {
+        $('#title').textContent = 'CREATE ACCOUNT';
+        $('#sub').textContent = 'Thirty credits on the house. No card required.';
+        $('#submitBtn').textContent = 'CREATE ACCOUNT';
+        $('#nameField').hidden = false;
+        $('#password').autocomplete = 'new-password';
+        $('#switch').innerHTML = 'Already have an account? <a href="/login">Sign in</a>';
+      } else {
+        $('#switch').innerHTML = "Don't have an account? <a href=\"/signup\">Create one</a>";
+      }
+
+      $('#form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = $('#submitBtn');
+        const err = $('#err');
+        err.className = 'note err';
+        btn.disabled = true;
+        btn.textContent = 'WORKING…';
+        try {
+          const out = await api(isSignup ? '/api/auth/signup' : '/api/auth/login', {
+            method: 'POST',
+            body: {
+              email: $('#email').value.trim(),
+              password: $('#password').value,
+              displayName: $('#displayName').value.trim(),
+            },
+          });
+          if (out.claimedGames > 0) {
+            toast(`Signed in — ${out.claimedGames} game${out.claimedGames > 1 ? 's' : ''} moved to your account.`);
+          }
+          setTimeout(() => (location.href = next), out.claimedGames ? 700 : 0);
+        } catch (ex) {
+          err.textContent = ex.error || ex.message;
+          err.className = 'note err on';
+          btn.disabled = false;
+          btn.textContent = isSignup ? 'CREATE ACCOUNT' : 'SIGN IN';
+        }
+      });
+    </script>
+  </body>
+</html>

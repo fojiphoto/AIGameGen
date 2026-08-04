@@ -1,0 +1,15 @@
+{
+  "name": "@forge/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./palettes": "./src/palettes.mjs"
+  },
+  "dependencies": {
+    "@forge/schema": "*",
+    "@forge/generation": "*"
+  }
+}

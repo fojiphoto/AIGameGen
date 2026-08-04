@@ -1,0 +1,21 @@
+{
+  "name": "@forge/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs"
+  },
+  "dependencies": {
+    "@forge/ai": "*",
+    "@forge/bundler": "*",
+    "@forge/generation": "*",
+    "@forge/db": "*",
+    "@forge/schema": "*",
+    "fastify": "^5.2.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/static": "^8.0.4"
+  }
+}

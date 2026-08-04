@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Export — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+
+    <main class="wrap">
+      <h1 id="title">EXPORT</h1>
+      <p class="sub">Turn this game into an installable Android app that works with no internet.</p>
+
+      <h2>PLATFORMS</h2>
+      <div class="grid tiles">
+        <div class="tile" style="border-color: rgba(163,217,119,.4)">
+          <div class="n" style="font-size: 15px">ANDROID APK</div>
+          <div class="c" style="color: var(--leaf2)">AVAILABLE</div>
+          <p class="small" style="margin-top: 8px">~0.35 MB · offline · zero permissions</p>
+        </div>
+        <div class="tile" style="opacity: .45"><div class="n" style="font-size:15px">WEB EMBED</div><div class="c">SOON</div></div>
+        <div class="tile" style="opacity: .45"><div class="n" style="font-size:15px">iOS</div><div class="c">SOON</div></div>
+        <div class="tile" style="opacity: .45"><div class="n" style="font-size:15px">WINDOWS</div><div class="c">SOON</div></div>
+      </div>
+
+      <h2>BUILD</h2>
+      <div class="card">
+        <div id="buildTop" class="row">
+          <button id="buildBtn">BUILD APK</button>
+          <span class="small" id="costNote"></span>
+        </div>
+        <div class="stages" id="stages"></div>
+        <div class="note err" id="err"></div>
+      </div>
+
+      <div id="ready" hidden>
+        <h2>DOWNLOAD</h2>
+        <div class="card">
+          <div class="row" style="align-items: flex-start; gap: 24px">
+            <div style="flex: 1; min-width: 240px">
+              <a class="btn wide" id="dlBtn" href="#">DOWNLOAD APK</a>
+              <p class="small" style="margin-top: 10px" id="apkMeta"></p>
+              <p class="small" style="margin-top: 14px">
+                <b>Installing:</b><br />
+                1. Open the downloaded file on your phone<br />
+                2. Allow "Install unknown apps" when Android asks<br />
+                3. Open it and play — works in airplane mode
+              </p>
+              <p class="small" style="margin-top: 10px; color: var(--leaf2)">
+                No permissions requested. Not even internet.
+              </p>
+            </div>
+            <div style="min-width: 230px">
+              <label>Direct link — open this on your phone</label>
+              <input id="dlUrl" readonly onclick="this.select()" style="font-size: 12px" />
+              <button class="ghost sm wide" id="copyBtn" style="margin-top: 8px">COPY LINK</button>
+              <p class="small" style="margin-top: 10px">
+                On the same wifi, replace <code>localhost</code> with this machine's LAN IP
+                and the phone can download it directly.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      import { mountChrome, api, meta, refreshCredits, $, esc, toast, toastError, fmtBytes } from '/assets/app.js';
+
+      const m = await mountChrome();
+      const id = location.pathname.split('/').pop();
+
+      let game = null;
+
+      async function load() {
+        const out = await api(`/api/games/${id}`).catch((e) => { toastError(e); return null; });
+        if (!out) { document.querySelector('main').innerHTML = '<div class="empty">Game not found.</div>'; return; }
+        game = out.game;
+        $('#title').textContent = `EXPORT — ${game.title}`;
+        $('#costNote').textContent = `${m.creditCosts?.build_apk ?? 15} credits · rebuilding the same version is free`;
+        if (game.apk) showReady(game.apk);
+      }
+
+      function showReady(apk) {
+        $('#ready').hidden = false;
+        $('#dlBtn').href = `/api/games/${id}/apk`;
+        $('#dlBtn').textContent = `DOWNLOAD APK · ${fmtBytes(apk.bytes)}`;
+        $('#apkMeta').textContent = `${apk.name} · ${fmtBytes(apk.bytes)} · minSdk 24 (Android 7.0)`;
+        $('#buildBtn').textContent = 'REBUILD';
+        const url = `${location.origin}/api/games/${id}/apk`;
+        $('#dlUrl').value = url;
+        $('#copyBtn').onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(url);
+            toast('Link copied.');
+          } catch {
+            $('#dlUrl').select();
+            toast('Press Ctrl+C to copy.');
+          }
+        };
+      }
+
+      const STAGE_LABEL = {
+        queued: 'Queued', preparing: 'Preparing workspace', compiling: 'Compiling',
+        packaging: 'Packaging assets', signing: 'Signing', verifying: 'Verifying', ready: 'Done',
+      };
+
+      $('#buildBtn').addEventListener('click', async () => {
+        const btn = $('#buildBtn');
+        btn.disabled = true;
+        $('#err').className = 'note err';
+        const box = $('#stages');
+        box.className = 'stages on';
+        box.innerHTML = '';
+        const seen = new Set();
+        let last = null;
+
+        try {
+          const out = await api(`/api/games/${id}/build`, { method: 'POST' });
+          if (out.cached) {
+            toast('Already built — nothing to pay.');
+            btn.disabled = false;
+            await load();
+            return;
+          }
+          const es = new EventSource(`/api/builds/${out.buildId}/stream`);
+          es.addEventListener('update', async (ev) => {
+            const j = JSON.parse(ev.data);
+            if (j.stage && !seen.has(j.stage)) {
+              seen.add(j.stage);
+              if (last) last.className = 'stage done';
+              const row = document.createElement('div');
+              row.className = 'stage';
+              row.innerHTML = `<b>▸</b><span>${STAGE_LABEL[j.stage] || j.stage}</span>`;
+              box.append(row);
+              last = row;
+            }
+            if (j.status === 'ready') {
+              es.close();
+              if (last) last.className = 'stage done';
+              btn.disabled = false;
+              toast(`APK built in ${(j.durationMs / 1000).toFixed(1)}s`);
+              await load();
+              refreshCredits().catch(() => {});
+              $('#ready').scrollIntoView({ behavior: 'smooth' });
+            }
+            if (j.status === 'failed') {
+              es.close();
+              btn.disabled = false;
+              box.className = 'stages';
+              $('#err').textContent = j.error || 'Build failed. Your credits were refunded.';
+              $('#err').className = 'note err on';
+            }
+          });
+        } catch (ex) {
+          btn.disabled = false;
+          box.className = 'stages';
+          $('#err').innerHTML = esc(ex.error || ex.message) +
+            (ex.code === 'INSUFFICIENT_CREDITS' ? ' <a href="/billing">Top up →</a>' : '');
+          $('#err').className = 'note err on';
+        }
+      });
+
+      load();
+    </script>
+  </body>
+</html>

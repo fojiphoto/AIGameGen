@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin — Forge</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+    <main class="wrap"><div id="body"><div class="empty">Checking access…</div></div></main>
+
+    <script type="module">
+      import { mountChrome, api, $, esc, toast, toastError, fmtDate, fmtBytes } from '/assets/app.js';
+
+      const m = await mountChrome();
+
+      // The server enforces this on every /api/admin route; hiding the UI is only
+      // cosmetic, so a non-admin who loads this page still cannot read any data.
+      if (!m.user || m.user.role !== 'admin') {
+        $('#body').innerHTML = `<div class="empty">Admins only. <a href="/login?next=/admin">Sign in</a></div>`;
+      } else {
+        render();
+      }
+
+      async function render() {
+        const [overview, users, reports, builds, ai, levels] = await Promise.all([
+          api('/api/admin/overview'), api('/api/admin/users'), api('/api/admin/reports'),
+          api('/api/admin/builds'), api('/api/admin/ai'), api('/api/admin/level-stats'),
+        ]).catch((e) => { toastError(e); return []; });
+        if (!overview) return;
+
+        const s = overview.stats;
+        const tiles = [
+          [s.users, 'users'], [s.games, 'games'], [s.public_games, 'public'],
+          [s.builds_ready, 'apks built'], [s.builds_failed, 'builds failed'],
+          [s.plays, 'plays'], [s.downloads, 'downloads'], [s.open_reports, 'open reports'],
+        ];
+
+        $('#body').innerHTML = `
+          <h1>ADMIN</h1>
+          <p class="sub">Signed in as ${esc(m.user.email)}.</p>
+
+          <div class="grid tiles">
+            ${tiles.map(([n, c]) => `<div class="tile"><div class="n">${n}</div><div class="c">${c}</div></div>`).join('')}
+          </div>
+
+          <h2>MODERATION QUEUE</h2>
+          <div class="card scrollx">
+            ${reports.reports.length ? `<table>
+              <thead><tr><th>Game</th><th>Reason</th><th>Notes</th><th>When</th><th></th></tr></thead>
+              <tbody>${reports.reports.map((r) => `<tr>
+                <td><a href="/game/${r.game_id}">${esc(r.title || r.game_id)}</a></td>
+                <td><span class="tag bad">${esc(r.reason)}</span></td>
+                <td class="small">${esc(r.notes || '')}</td>
+                <td class="small">${fmtDate(r.created_at)}</td>
+                <td class="row">
+                  <button class="danger sm" data-act="actioned" data-id="${r.id}" data-game="${r.game_id}">UNPUBLISH</button>
+                  <button class="ghost sm" data-act="dismissed" data-id="${r.id}" data-game="${r.game_id}">DISMISS</button>
+                </td></tr>`).join('')}</tbody></table>`
+              : '<div class="small">Nothing reported. Queue is clear.</div>'}
+          </div>
+
+          <h2>AI SPEND</h2>
+          <div class="card">
+            <div class="grid tiles">
+              <div class="tile"><div class="n">${ai.summary.calls}</div><div class="c">api calls</div></div>
+              <div class="tile"><div class="n">$${Number(ai.summary.cost_usd).toFixed(4)}</div><div class="c">total cost</div></div>
+              <div class="tile"><div class="n">${ai.summary.out_tokens}</div><div class="c">output tokens</div></div>
+              <div class="tile"><div class="n">${ai.summary.failures}</div><div class="c">failures</div></div>
+            </div>
+            ${ai.summary.calls === 0
+              ? '<p class="small" style="margin-top:12px">No API calls yet — running in deterministic mode, which costs nothing.</p>'
+              : ''}
+          </div>
+
+          <h2>DIFFICULTY TUNING — CLEAR RATE BY LEVEL</h2>
+          <div class="card scrollx">
+            ${levels.levels.length ? `
+              ${levels.outliers.length ? `<div class="note err on" style="display:block">
+                ${levels.outliers.length} level(s) clear below 15% — the curve may need retuning:
+                ${levels.outliers.map((o) => `L${o.level} (${Math.round(o.clear_rate * 100)}%)`).join(', ')}
+              </div>` : ''}
+              <table>
+                <thead><tr><th>Level</th><th>Attempts</th><th>Clears</th><th>Deaths</th><th>Clear rate</th></tr></thead>
+                <tbody>${levels.levels.map((l) => `<tr>
+                  <td>${l.level}</td><td>${l.attempts}</td><td>${l.clears}</td><td>${l.deaths}</td>
+                  <td><div class="bar"><i style="width:${(l.clear_rate ?? 0) * 100}%"></i></div>
+                    <span class="small">${l.clear_rate === null ? '—' : Math.round(l.clear_rate * 100) + '%'}</span></td>
+                </tr>`).join('')}</tbody></table>`
+              : '<div class="small">No telemetry yet. Play a few levels and this fills in — it is what tells us whether the difficulty curve is actually tuned right.</div>'}
+          </div>
+
+          <h2>BUILDS</h2>
+          <div class="card scrollx">
+            ${builds.builds.length ? `<table>
+              <thead><tr><th>Game</th><th>v</th><th>Status</th><th>Size</th><th>Time</th><th>When</th></tr></thead>
+              <tbody>${builds.builds.map((b) => `<tr>
+                <td>${esc(b.title || b.game_id)}</td>
+                <td>${b.version}</td>
+                <td><span class="tag ${b.status === 'failed' ? 'bad' : b.status === 'ready' ? 'relief' : ''}">${b.status}</span></td>
+                <td>${b.size_bytes ? fmtBytes(b.size_bytes) : '—'}</td>
+                <td>${b.duration_ms ? (b.duration_ms / 1000).toFixed(1) + 's' : '—'}</td>
+                <td class="small">${fmtDate(b.created_at)}</td>
+              </tr>`).join('')}</tbody></table>` : '<div class="small">No builds yet.</div>'}
+          </div>
+
+          <h2>USERS</h2>
+          <div class="card scrollx">
+            <table>
+              <thead><tr><th>Email</th><th>Role</th><th>Status</th><th>Credits</th><th>Games</th><th>Joined</th><th></th></tr></thead>
+              <tbody>${users.users.map((u) => `<tr>
+                <td>${esc(u.email)}</td>
+                <td><span class="tag ${u.role === 'admin' ? '' : 'relief'}">${u.role}</span></td>
+                <td>${u.status === 'suspended' ? '<span class="tag bad">suspended</span>' : 'active'}</td>
+                <td>${u.credits}</td>
+                <td>${u.games}</td>
+                <td class="small">${fmtDate(u.createdAt)}</td>
+                <td class="row">
+                  <button class="ghost sm" data-grant="${u.id}">+100</button>
+                  <button class="ghost sm" data-status="${u.id}" data-to="${u.status === 'suspended' ? 'active' : 'suspended'}">
+                    ${u.status === 'suspended' ? 'UNSUSPEND' : 'SUSPEND'}</button>
+                </td></tr>`).join('')}</tbody>
+            </table>
+          </div>`;
+
+        document.addEventListener('click', onAdminClick, { once: false });
+      }
+
+      let busy = false;
+      async function onAdminClick(e) {
+        const d = e.target.dataset || {};
+        if (busy) return;
+        try {
+          if (d.act && d.id) {
+            busy = true;
+            await api(`/api/admin/reports/${d.id}/resolve`, {
+              method: 'POST', body: { action: d.act, gameId: d.game },
+            });
+            toast(d.act === 'actioned' ? 'Game unpublished.' : 'Report dismissed.');
+            location.reload();
+          } else if (d.grant) {
+            busy = true;
+            await api(`/api/admin/users/${d.grant}/credits`, { method: 'POST', body: { amount: 100 } });
+            toast('+100 credits granted.');
+            location.reload();
+          } else if (d.status) {
+            busy = true;
+            await api(`/api/admin/users/${d.status}/status`, { method: 'POST', body: { status: d.to } });
+            toast(`User ${d.to}.`);
+            location.reload();
+          }
+        } catch (ex) {
+          busy = false;
+          toastError(ex);
+        }
+      }
+    </script>
+  </body>
+</html>

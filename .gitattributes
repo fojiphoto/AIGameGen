@@ -1,0 +1,12 @@
+# Normalise line endings in the repo, check out native on each machine.
+# Without this, a Windows checkout rewrites every file and the first diff is 90 files of
+# nothing.
+* text=auto eol=lf
+
+# Binary — never touch these
+*.png binary
+*.apk binary
+*.keystore binary
+*.jks binary
+*.woff2 binary
+*.db binary

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Not found — Forge</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <div id="chrome" class="wrap"></div>
+    <main class="wrap narrow" style="padding-top: 40px">
+      <h1>404</h1>
+      <p class="sub">That page doesn't exist.</p>
+      <div class="row">
+        <a class="btn" href="/studio">MAKE A GAME</a>
+        <a class="btn ghost" href="/arcade">BROWSE THE ARCADE</a>
+      </div>
+    </main>
+    <script type="module">
+      import { mountChrome } from '/assets/app.js';
+      await mountChrome();
+    </script>
+  </body>
+</html>
