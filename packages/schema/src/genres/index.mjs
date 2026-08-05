@@ -45,12 +45,17 @@ export function clampByRanges(raw, ranges) {
   return out;
 }
 
-function makeEntry(mod, { label, family, blurb }) {
+function makeEntry(mod, { label, family, blurb, order = 99, featured = false }) {
   return {
     id: mod.GENRE_ID,
     label,
     family,
     blurb,
+    /** Display position in the studio picker. Explicit, because relying on object key
+     *  order meant a newly added template silently landed last. */
+    order,
+    /** Gets the large highlighted tile — the one a demo should open with. */
+    featured,
     configSchema: mod.ConfigSchema,
     toolFields: mod.TOOL_FIELDS,
     defaultTagline: mod.DEFAULT_TAGLINE,
@@ -73,6 +78,8 @@ export const GENRE_REGISTRY = {
     label: 'Endless Runner',
     family: 'arcade',
     blurb: 'Auto-run, jump the obstacles, survive further each level.',
+    order: 2,
+    featured: false,
     configSchema: RunnerConfigSchema,
     toolFields: RUNNER_TOOL.input_schema.properties,
     defaultTagline: 'run further every level · 20 levels · endless mode',
@@ -84,31 +91,39 @@ export const GENRE_REGISTRY = {
     label: 'Tap-to-Fly',
     family: 'arcade',
     blurb: 'Tap to flap, thread the gaps, do not touch anything.',
+    order: 3,
   }),
   [memoryMatch.GENRE_ID]: makeEntry(memoryMatch, {
     label: 'Memory Match',
     family: 'board',
     blurb: 'Flip cards and find every pair before the clock runs out.',
+    order: 5,
   }),
   [slidingPuzzle.GENRE_ID]: makeEntry(slidingPuzzle, {
     label: 'Sliding Puzzle',
     family: 'board',
     blurb: 'Slide the tiles back into order within a move budget.',
+    order: 6,
   }),
   [merge2048.GENRE_ID]: makeEntry(merge2048, {
     label: '2048 Merge',
     family: 'board',
     blurb: 'Swipe to merge matching tiles and reach the target number.',
+    order: 7,
   }),
   [snake.GENRE_ID]: makeEntry(snake, {
     label: 'Snake',
     family: 'arcade',
     blurb: 'Eat to grow, and never run into a wall or your own tail.',
+    order: 4,
   }),
+  // Position 1 and featured: this is the template a demo should open with.
   [rhythmDash.GENRE_ID]: makeEntry(rhythmDash, {
     label: 'Rhythm Dash',
     family: 'reflex',
-    blurb: 'One tap, one life. Memorise the layout, no menus between attempts.',
+    blurb: 'One tap, one life. No menus — die and you are running again half a second later.',
+    order: 1,
+    featured: true,
   }),
 };
 
@@ -131,10 +146,14 @@ export const isImplemented = (id) => Boolean(GENRE_REGISTRY[id]);
 
 /** Catalogue for the studio genre picker and the landing page. */
 export const genreCatalogue = () => [
-  ...Object.values(GENRE_REGISTRY).map((g) => ({
-    id: g.id, label: g.label, family: g.family, blurb: g.blurb, live: true,
-  })),
-  ...PLANNED_GENRES.map((g) => ({ ...g, blurb: null, live: false })),
+  ...Object.values(GENRE_REGISTRY)
+    .slice()
+    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
+    .map((g) => ({
+      id: g.id, label: g.label, family: g.family, blurb: g.blurb,
+      featured: Boolean(g.featured), live: true,
+    })),
+  ...PLANNED_GENRES.map((g) => ({ ...g, blurb: null, featured: false, live: false })),
 ];
 
 /**

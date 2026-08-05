@@ -111,6 +111,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  */
 export async function runBuild({ genre, label, prompt, log, barFill, barText, seconds = 26 }) {
   log.innerHTML = '';
+
+  /**
+   * Deadline-based pacing rather than a chain of sleeps.
+   *
+   * Browsers clamp setTimeout to roughly one second in a background tab, so a run built from
+   * dozens of short waits stretches from 26 seconds to several minutes if the user switches
+   * away mid-build — and comes back to a bar still crawling. Checking a deadline instead means
+   * a throttled run simply catches up: once we are behind schedule the remaining waits are
+   * skipped and the log finishes promptly.
+   */
+  const startedAt = Date.now();
+  const deadline = startedAt + seconds * 1000;
+  const behind = () => Date.now() > deadline;
+  const wait = (ms) => (behind() ? Promise.resolve() : sleep(ms));
+
   let pct = 0;
   const setPct = (v, caption) => {
     pct = Math.max(pct, Math.min(100, v));
@@ -119,13 +134,13 @@ export async function runBuild({ genre, label, prompt, log, barFill, barText, se
   };
   setPct(0, 'Starting…');
 
-  const say = async (who, text, wait) => {
+  const say = async (who, text, waitMs) => {
     const row = document.createElement('div');
     row.className = `msg ${who}`;
     row.innerHTML = `<b>${who === 'bot' ? 'FORGE' : 'YOU'}</b><span>${esc(text)}</span>`;
     log.append(row);
     log.scrollTop = log.scrollHeight;
-    if (wait) await sleep(wait);
+    if (waitMs) await wait(waitMs);
   };
 
   const typing = () => {
@@ -140,7 +155,7 @@ export async function runBuild({ genre, label, prompt, log, barFill, barText, se
   // The user's side of the transcript, so it reads as a request rather than a monologue.
   await say('you', `Build me a ${label.toLowerCase()} — ${prompt}`, 500);
   const t = typing();
-  await sleep(700);
+  await wait(700);
   t.remove();
   await say('bot', fill(pick(SCRIPT.greet), { label }), 500);
 
@@ -176,7 +191,7 @@ export async function runBuild({ genre, label, prompt, log, barFill, barText, se
     while (used.has(line) && guard++ < 8) line = pick(SCRIPT.design);
     used.add(line);
     const tp = typing();
-    await sleep(420 + Math.random() * 420);
+    await wait(420 + Math.random() * 420);
     tp.remove();
     await say('bot', line, 260);
     setPct(6 + (i / designLines) * 16, STAGE_LABEL.designing);
@@ -216,16 +231,25 @@ export async function runBuild({ genre, label, prompt, log, barFill, barText, se
   return { ok: true, game: result.game, notes: result.notes ?? [], realMs };
 }
 
-/** Template tile grid. Live templates are clickable; planned ones are dimmed. */
+/**
+ * Template tile grid. Live templates are clickable; planned ones are dimmed.
+ *
+ * The featured template gets a wide tile with its blurb showing. In a two-minute demo the
+ * first thing on the page is the thing that gets clicked, so which template sits there is a
+ * pitch decision, not a layout accident — it comes from `order`/`featured` in the registry.
+ */
 export function templateGrid(genres, onPick) {
   const el = document.createElement('div');
   el.className = 'grid tiles';
   el.innerHTML = genres
     .map((g) => `
-      <button class="tpl ${g.live ? '' : 'soon'}" ${g.live ? '' : 'disabled'} data-genre="${esc(g.id)}">
+      <button class="tpl ${g.live ? '' : 'soon'} ${g.featured ? 'feat' : ''}"
+              ${g.live ? '' : 'disabled'} data-genre="${esc(g.id)}">
+        ${g.featured ? '<span class="tplBadge">START HERE</span>' : ''}
         <span class="tplIcon">${ICONS[g.id] ?? '🎮'}</span>
         <span class="tplName">${esc(g.label)}</span>
         <span class="tplFam">${g.live ? esc(g.family) : 'coming soon'}</span>
+        ${g.featured && g.blurb ? `<span class="tplBlurb">${esc(g.blurb)}</span>` : ''}
       </button>`)
     .join('');
   el.addEventListener('click', (e) => {
@@ -238,6 +262,7 @@ export function templateGrid(genres, onPick) {
 }
 
 const ICONS = {
+  rhythm_dash: '🔺',
   endless_runner: '🏃',
   tap_to_fly: '🕊️',
   memory_match: '🃏',
