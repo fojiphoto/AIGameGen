@@ -21,7 +21,23 @@ const gameId = (() => {
   }
 })();
 
-export const enabled = Boolean(gameId) && location.protocol.startsWith('http');
+/**
+ * Also off when the page says so.
+ *
+ * A statically-exported build (GitHub Pages, a CDN, an iframe on someone's marketing site)
+ * matches the `/play/<id>/` path but has no API behind it, so every event would 404. Harmless
+ * functionally — it is all wrapped in catch — but a console full of failed requests is the
+ * last thing you want a client looking at. `tools/publish-web.mjs` sets this flag.
+ */
+const optedOut = (() => {
+  try {
+    return window.__FORGE_NO_TELEMETRY__ === true;
+  } catch {
+    return false;
+  }
+})();
+
+export const enabled = Boolean(gameId) && !optedOut && location.protocol.startsWith('http');
 
 function post(body) {
   if (!enabled) return;

@@ -1,0 +1,239 @@
+#!/usr/bin/env node
+/**
+ * Publish playable games as a static site, for GitHub Pages or any CDN.
+ *
+ *   node tools/publish-web.mjs
+ *
+ * This works because a generated bundle is already completely static: `index.html` carries
+ * the config inlined and `game.js` makes no network calls at all. That property exists so the
+ * offline APK works, and it pays off a second time here — the same bytes that run inside an
+ * APK also run from a plain file host, with no server, no database and no build step.
+ *
+ * Output layout:
+ *
+ *   docs/index.html            arcade page listing every game
+ *   docs/engine/game.js        ONE copy of the engine, shared by every game
+ *   docs/play/<slug>/index.html
+ *   docs/embed/<slug>.html     bare page for iframing into another site
+ *   docs/.nojekyll             stop Pages running Jekyll over it
+ *
+ * The engine is ~1.2 MB and byte-identical for every game, so it is emitted once and
+ * referenced relatively. Copying it per game would be 8 MB of duplicates and would defeat
+ * browser caching between games.
+ */
+
+import { mkdir, writeFile, readFile, copyFile, rm, stat } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { planDeterministic } from '@forge/ai';
+import { buildAnyGame } from '@forge/generation/genres';
+import { bundleGame } from '@forge/bundler';
+import { GENRE_REGISTRY, IMPLEMENTED_GENRES } from '@forge/schema/genres';
+
+const ROOT = resolve(import.meta.dirname, '..');
+const OUT = join(ROOT, 'docs');
+const TMP = join(ROOT, 'artifacts', '_publish');
+
+/** One showcase game per template, each with a distinct theme. */
+const SHOWCASE = [
+  { genre: 'rhythm_dash', prompt: 'neon cyberpunk city', blurb: 'One tap, one life. No menus — die and you are already running again.' },
+  { genre: 'endless_runner', prompt: 'lava volcano depths', blurb: 'Auto-run and jump. Twenty levels, then endless mode.' },
+  { genre: 'tap_to_fly', prompt: 'deep space station', blurb: 'Tap to flap and thread the gaps.' },
+  { genre: 'snake', prompt: 'emerald jungle canopy', blurb: 'Eat, grow, and do not run into yourself.' },
+  { genre: 'merge_2048', prompt: 'minimal monochrome ink', blurb: 'Swipe to merge tiles and reach the target.' },
+  { genre: 'memory_match', prompt: 'pastel dessert land', blurb: 'Find every pair before the clock runs out.' },
+  { genre: 'sliding_puzzle', prompt: 'arctic glacier', blurb: 'Slide the tiles back into order.' },
+];
+
+const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+console.log('\n\x1b[1mFORGE — publish static site\x1b[0m\n');
+
+await rm(OUT, { recursive: true, force: true });
+await mkdir(join(OUT, 'engine'), { recursive: true });
+await mkdir(join(OUT, 'play'), { recursive: true });
+await mkdir(join(OUT, 'embed'), { recursive: true });
+// Pages runs Jekyll by default, which skips paths beginning with an underscore and slows
+// every deploy down for no benefit here.
+await writeFile(join(OUT, '.nojekyll'), '');
+
+const published = [];
+let engineWritten = false;
+
+for (const item of SHOWCASE) {
+  if (!IMPLEMENTED_GENRES.includes(item.genre)) {
+    console.log(`  \x1b[33mskip\x1b[0m ${item.genre} — not implemented`);
+    continue;
+  }
+  const entry = GENRE_REGISTRY[item.genre];
+  const { config } = planDeterministic(item.prompt, { genre: item.genre });
+  const { levels, report, validation } = buildAnyGame(config);
+  if (!report.ok || !validation.ok) {
+    console.log(`  \x1b[31mfail\x1b[0m ${item.genre}: ${[...report.fatals, ...validation.curveIssues].join('; ')}`);
+    continue;
+  }
+
+  const slug = slugify(`${entry.label}-${config.meta.title}`);
+  const tmpDir = join(TMP, slug);
+  await bundleGame({ config, levels, outDir: tmpDir });
+
+  // Emit the engine exactly once.
+  if (!engineWritten) {
+    await copyFile(join(tmpDir, 'game.js'), join(OUT, 'engine', 'game.js'));
+    engineWritten = true;
+  }
+
+  const html = await readFile(join(tmpDir, 'index.html'), 'utf8');
+  const pageDir = join(OUT, 'play', slug);
+  await mkdir(pageDir, { recursive: true });
+
+  // Point at the shared engine, and switch telemetry off — there is no API behind a static
+  // host, and a console full of failed POSTs is not what a client should see.
+  const rewritten = html
+    .replace('<script src="game.js"></script>', '<script src="../../engine/game.js"></script>')
+    .replace('window.__GAME__ =', 'window.__FORGE_NO_TELEMETRY__ = true;\n      window.__GAME__ =');
+
+  if (rewritten === html) {
+    throw new Error(`could not rewrite the engine path for ${slug} — the bundler shell changed shape`);
+  }
+  await writeFile(join(pageDir, 'index.html'), rewritten, 'utf8');
+
+  // A frameless variant for embedding, identical except it fills the iframe.
+  await writeFile(
+    join(OUT, 'embed', `${slug}.html`),
+    rewritten.replace('</head>', '<style>#boot{font-size:11px}</style></head>'),
+    'utf8'
+  );
+
+  published.push({
+    slug,
+    label: entry.label,
+    family: entry.family,
+    title: config.meta.title,
+    tagline: config.meta.tagline,
+    blurb: item.blurb,
+    palette: config.theme.palette,
+    levels: report.levelsBuilt,
+    elements: report.totalObstacles,
+    minutes: report.estTotalMinutes,
+  });
+  console.log(`  \x1b[32mok\x1b[0m   ${entry.label.padEnd(16)} ${config.meta.title.padEnd(16)} play/${slug}/`);
+}
+
+if (!published.length) throw new Error('nothing published');
+
+// ── arcade index ────────────────────────────────────────────────────────────
+
+const cards = published
+  .map(
+    (g) => `
+      <article class="card">
+        <a class="thumb" href="play/${g.slug}/"
+           style="background:linear-gradient(150deg,${g.palette.bgAccent},${g.palette.bg})">
+          <span class="sw"><i style="background:${g.palette.ground}"></i><i style="background:${g.palette.player}"></i><i style="background:${g.palette.obstacle}"></i><i style="background:${g.palette.accent}"></i></span>
+          <span class="playnow">PLAY</span>
+        </a>
+        <div class="body">
+          <h3>${esc(g.title)}</h3>
+          <p class="fam">${esc(g.label)} · ${esc(g.family)}</p>
+          <p class="blurb">${esc(g.blurb)}</p>
+          <p class="stats">${g.levels} levels · ${g.elements} elements verified · ~${g.minutes} min</p>
+          <a class="btn" href="play/${g.slug}/">PLAY NOW</a>
+        </div>
+      </article>`
+  )
+  .join('');
+
+const index = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Forge Arcade — generated games by Factorial Studio</title>
+<meta name="description" content="Playable games generated by Forge. Every level is verified finishable before it ships." />
+<meta property="og:title" content="Forge Arcade — generated games" />
+<meta property="og:description" content="Every one of these was generated from a single line of text. Every level is proven finishable." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--ink:#06281c;--g800:#0a5a42;--leaf:#7cb342;--leaf2:#a3d977;--gold:#fbbf24;--orange:#ff7043;--text:#eaf5ee;--muted:#a9c6b5;--f-disp:'Bungee',cursive;--f-body:'Fredoka',sans-serif;--r:22px;--line:rgba(255,255,255,.08)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:var(--f-body);background:var(--ink);color:var(--text);line-height:1.55;
+    background-image:radial-gradient(1100px 520px at 78% -12%,rgba(124,179,66,.16),transparent 60%),radial-gradient(760px 420px at 6% 108%,rgba(251,191,36,.1),transparent 62%);
+    background-attachment:fixed;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 20px 80px}
+  .logo{font-family:var(--f-disp);font-size:19px;color:var(--text);text-decoration:none}
+  .logo span{color:var(--leaf2)}
+  h1{font-family:var(--f-disp);font-size:clamp(28px,5vw,46px);line-height:1.06;margin:20px 0 10px}
+  .sub{color:var(--muted);font-size:15px;max-width:66ch;margin-bottom:8px}
+  .pill{display:inline-block;font-size:11px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--muted);border:1px solid var(--line)}
+  .pill.live{color:var(--leaf2);border-color:rgba(163,217,119,.35)}
+  h2{font-family:var(--f-disp);font-size:14px;letter-spacing:.6px;color:var(--muted);margin:38px 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+  .card{border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:rgba(0,0,0,.24)}
+  .thumb{display:flex;align-items:flex-end;justify-content:space-between;height:120px;padding:12px;text-decoration:none;position:relative}
+  .sw{display:flex;gap:5px}
+  .sw i{width:22px;height:22px;border-radius:6px;display:block}
+  .playnow{font-family:var(--f-disp);font-size:12px;color:#24160a;background:var(--gold);padding:6px 12px;border-radius:999px}
+  .body{padding:15px 16px 18px}
+  .body h3{font-family:var(--f-disp);font-size:16px}
+  .fam{font-size:11px;color:var(--leaf2);text-transform:uppercase;letter-spacing:.5px;margin:3px 0 8px}
+  .blurb{font-size:13px;color:var(--muted);margin-bottom:8px}
+  .stats{font-size:11px;color:var(--muted);opacity:.75;margin-bottom:13px}
+  .btn{display:inline-block;font-weight:600;font-size:13px;padding:11px 22px;border-radius:999px;background:var(--gold);color:#24160a;text-decoration:none}
+  .btn:hover{transform:translateY(-1px)}
+  .note{margin-top:18px;padding:16px 18px;border-radius:var(--r);background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:5px;color:var(--leaf2)}
+  pre{margin-top:10px;padding:14px;border-radius:14px;background:rgba(0,0,0,.4);overflow-x:auto;font-size:12px;color:var(--text)}
+  footer{margin-top:52px;padding-top:22px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="logo" href="/">FACTORIAL<span>STUDIO</span></a>
+  <h1>FORGE ARCADE</h1>
+  <p class="sub">
+    Every game below was generated from a single line of text — layout, difficulty curve,
+    palette, sound and all. Each one is playable right here, and each one also exports as a
+    signed Android APK that runs with no internet.
+  </p>
+  <p><span class="pill live">${published.length} TEMPLATES</span> <span class="pill">EVERY LEVEL VERIFIED FINISHABLE</span> <span class="pill">NO PLUGINS</span></p>
+
+  <h2>PLAY</h2>
+  <div class="grid">${cards}
+  </div>
+
+  <div class="note">
+    <b>Embedding these on another page.</b> Each game has a frameless version made for iframes:
+    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/${published[0].slug}.html"
+        style="width:100%;aspect-ratio:900/506;border:0;border-radius:14px"
+        title="${esc(published[0].title)}"&gt;&lt;/iframe&gt;</pre>
+  </div>
+
+  <div class="note">
+    <b>Why "verified finishable" is the interesting part.</b> Levels are generated
+    procedurally, then each one is simulated headlessly before it ships — jump arcs, gap
+    reachability, landing room, move budgets. A level that cannot be completed is re-seeded
+    until it can be. Nothing here was hand-placed, and nothing here is impossible.
+  </div>
+
+  <footer>© 2026 Factorial Studio Private Limited. Generated with Forge.</footer>
+</div>
+</body>
+</html>
+`;
+
+await writeFile(join(OUT, 'index.html'), index, 'utf8');
+await rm(TMP, { recursive: true, force: true });
+
+const engineSize = (await stat(join(OUT, 'engine', 'game.js'))).size;
+console.log(`\n\x1b[32m✓ published ${published.length} games\x1b[0m`);
+console.log(`  output   docs/`);
+console.log(`  engine   ${(engineSize / 1024 / 1024).toFixed(2)} MB (shared by all games)`);
+console.log(`\n  Once GitHub Pages is enabled for the repo (Settings → Pages → main / docs):`);
+console.log(`    arcade  https://fojiphoto.github.io/AIGameGen/`);
+for (const g of published) {
+  console.log(`    ${g.label.padEnd(16)} https://fojiphoto.github.io/AIGameGen/play/${g.slug}/`);
+}
+console.log('');

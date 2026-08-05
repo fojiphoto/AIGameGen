@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit + user-scalable=no: a game must not pinch-zoom or double-tap-zoom -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#071a2b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>FROST DRIFT</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        background: #071a2b;
+        /* block the pull-to-refresh and text-selection gestures that ruin touch games */
+        overscroll-behavior: none;
+        -webkit-user-select: none; user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      #game { width: 100%; height: 100%; display: grid; place-items: center; }
+      #game canvas { display: block; }
+      #boot {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        font: 600 13px system-ui, Roboto, sans-serif; letter-spacing: 0.16em;
+        color: #eaf6ff; background: #071a2b; z-index: 5;
+      }
+      #boot.gone { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="boot">LOADING</div>
+    <div id="game"></div>
+    <script>
+      window.__FORGE_NO_TELEMETRY__ = true;
+      window.__GAME__ = {"schemaVersion":1,"genre":"sliding_puzzle","meta":{"title":"FROST DRIFT","tagline":"slide it back into order · 20 levels","packageId":"com.factorialstudio.forge.g1jai7kc","seed":2455076114},"theme":{"palette":{"bg":"#071a2b","bgAccent":"#0d3550","ground":"#14507a","player":"#e0f7ff","obstacle":"#ff6b6b","accent":"#66e0ff","text":"#eaf6ff"},"styleTags":["crisp","icy","clean"],"mood":"calm","spritePack":null},"progression":{"levels":20,"mode":"levels_only","endlessUnlockAt":20,"reliefLevels":[8,15]},"copy":{"levelNames":["Frostline 01","Whiteout 02","Crevasse 03","Blue Ice 04 — Rising","Ridge 05 — Rising","Floe 06 — Steady","Snowfield 07 — Steady","Shelf 08 — Breather","Frostline 09 — Faster","Whiteout 10 — Faster","Crevasse 11 — Tight","Blue Ice 12 — Tight","Ridge 13 — Sharp","Floe 14 — Sharp","Snowfield 15 — Relief","Shelf 16 — Overdrive","Frostline 17 — Overdrive","Whiteout 18 — Critical","Crevasse 19 — No Mercy","Blue Ice 20 — Final Run"],"tutorial":"TAP a tile next to the gap to slide it","winMsg":"LEVEL CLEAR","loseMsg":"OUT OF MOVES","endlessMsg":"ALL LEVELS CLEAR"},"levels":[{"index":1,"name":"Frostline 01","size":3,"tiles":[0,2,3,1,4,8,7,6,5],"blank":0,"scramble":8,"moveLimit":28,"faceStyle":"blocks","isRelief":false},{"index":2,"name":"Whiteout 02","size":3,"tiles":[1,6,2,4,5,3,0,7,8],"blank":6,"scramble":8,"moveLimit":28,"faceStyle":"blocks","isRelief":false},{"index":3,"name":"Crevasse 03","size":3,"tiles":[4,0,1,2,6,3,7,5,8],"blank":1,"scramble":9,"moveLimit":32,"faceStyle":"blocks","isRelief":false},{"index":4,"name":"Blue Ice 04 — Rising","size":3,"tiles":[0,1,3,6,2,8,4,7,5],"blank":0,"scramble":10,"moveLimit":35,"faceStyle":"blocks","isRelief":false},{"index":5,"name":"Ridge 05 — Rising","size":3,"tiles":[4,3,0,8,1,5,2,7,6],"blank":2,"scramble":12,"moveLimit":41,"faceStyle":"blocks","isRelief":false},{"index":6,"name":"Floe 06 — Steady","size":3,"tiles":[1,8,3,4,7,5,2,6,0],"blank":8,"scramble":14,"moveLimit":48,"faceStyle":"blocks","isRelief":false},{"index":7,"name":"Snowfield 07 — Steady","size":3,"tiles":[5,6,4,1,0,2,7,3,8],"blank":4,"scramble":16,"moveLimit":53,"faceStyle":"blocks","isRelief":false},{"index":8,"name":"Shelf 08 — Breather","size":3,"tiles":[5,7,1,0,4,2,8,6,3],"blank":3,"scramble":17,"moveLimit":56,"faceStyle":"blocks","isRelief":true},{"index":9,"name":"Frostline 09 — Faster","size":3,"tiles":[4,0,5,7,6,1,8,3,2],"blank":1,"scramble":23,"moveLimit":73,"faceStyle":"blocks","isRelief":false},{"index":10,"name":"Whiteout 10 — Faster","size":3,"tiles":[6,3,5,1,0,8,4,2,7],"blank":4,"scramble":26,"moveLimit":80,"faceStyle":"blocks","isRelief":false},{"index":11,"name":"Crevasse 11 — Tight","size":3,"tiles":[5,2,6,4,8,1,7,0,3],"blank":7,"scramble":31,"moveLimit":93,"faceStyle":"blocks","isRelief":false},{"index":12,"name":"Blue Ice 12 — Tight","size":3,"tiles":[8,7,1,4,2,6,5,0,3],"blank":7,"scramble":35,"moveLimit":101,"faceStyle":"blocks","isRelief":false},{"index":13,"name":"Ridge 13 — Sharp","size":3,"tiles":[1,0,2,7,4,3,5,8,6],"blank":1,"scramble":41,"moveLimit":113,"faceStyle":"blocks","isRelief":false},{"index":14,"name":"Floe 14 — Sharp","size":3,"tiles":[3,4,7,5,0,2,8,6,1],"blank":4,"scramble":46,"moveLimit":121,"faceStyle":"blocks","isRelief":false},{"index":15,"name":"Snowfield 15 — Relief","size":3,"tiles":[3,2,6,7,0,4,1,5,8],"blank":4,"scramble":46,"moveLimit":121,"faceStyle":"blocks","isRelief":true},{"index":16,"name":"Shelf 16 — Overdrive","size":4,"tiles":[2,7,3,11,9,6,1,12,13,5,4,8,14,10,0,15],"blank":14,"scramble":59,"moveLimit":137,"faceStyle":"blocks","isRelief":false},{"index":17,"name":"Frostline 17 — Overdrive","size":4,"tiles":[7,3,0,10,1,8,2,11,6,5,14,12,15,9,13,4],"blank":2,"scramble":66,"moveLimit":143,"faceStyle":"blocks","isRelief":false},{"index":18,"name":"Whiteout 18 — Critical","size":4,"tiles":[7,3,0,1,6,12,11,8,2,9,5,13,10,14,15,4],"blank":2,"scramble":74,"moveLimit":147,"faceStyle":"blocks","isRelief":false},{"index":19,"name":"Crevasse 19 — No Mercy","size":4,"tiles":[1,11,12,4,2,7,3,0,9,10,5,6,13,8,14,15],"blank":7,"scramble":82,"moveLimit":148,"faceStyle":"blocks","isRelief":false},{"index":20,"name":"Blue Ice 20 — Final Run","size":4,"tiles":[10,2,7,8,1,5,11,15,9,13,0,3,12,6,4,14],"blank":10,"scramble":90,"moveLimit":144,"faceStyle":"blocks","isRelief":false}],"board":{"sizeStart":3,"sizeEnd":4,"faceStyle":"blocks"},"difficulty":{"curve":"easeInQuad","scrambleStart":8,"scrambleEnd":90,"moveSlackStart":3.5,"moveSlackEnd":1.6},"buildId":"a0n38g"};
+    </script>
+    <script src="../../engine/game.js"></script>
+    <script>
+      // hide the boot splash once Phaser has produced a canvas
+      (function () {
+        var tries = 0;
+        var iv = setInterval(function () {
+          if (document.querySelector('#game canvas') || ++tries > 100) {
+            var b = document.getElementById('boot');
+            if (b) b.className = 'gone';
+            clearInterval(iv);
+          }
+        }, 50);
+      })();
+    </script>
+  </body>
+</html>
