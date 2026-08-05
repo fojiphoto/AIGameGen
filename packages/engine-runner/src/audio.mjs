@@ -67,6 +67,37 @@ function noise({ dur = 0.18, gain = 0.5 }) {
   src.start();
 }
 
+/**
+ * Punchier variants for rhythm_dash.
+ *
+ * A player in this genre hears the jump sound several hundred times in a sitting, so it has
+ * to be short and dry — a long or bright tone becomes unbearable fast. The death sound is the
+ * opposite: it should land hard enough to register as a mistake without being punishing.
+ */
+export const dashSfx = {
+  jump: () => {
+    tone({ type: 'square', from: 420, to: 700, dur: 0.075, gain: 0.26 });
+    tone({ type: 'sine', from: 900, to: 1300, dur: 0.05, gain: 0.1 });
+  },
+  land: () => {
+    tone({ type: 'sine', from: 150, to: 88, dur: 0.06, gain: 0.2 });
+    noise({ dur: 0.05, gain: 0.14 });
+  },
+  death: () => {
+    noise({ dur: 0.34, gain: 0.5 });
+    tone({ type: 'sawtooth', from: 300, to: 44, dur: 0.4, gain: 0.34 });
+    tone({ type: 'square', from: 160, to: 40, dur: 0.26, gain: 0.2, delay: 0.03 });
+  },
+  pad: () => tone({ type: 'triangle', from: 520, to: 1150, dur: 0.16, gain: 0.3 }),
+  complete: () => {
+    [523, 659, 784, 1046, 1318].forEach((f, i) =>
+      tone({ type: 'triangle', from: f, to: f, dur: 0.2, gain: 0.28, delay: i * 0.085 })
+    );
+  },
+  /** Faint tick under the action, on the jump-rhythm beat. Very quiet by design. */
+  beat: () => tone({ type: 'sine', from: 110, to: 96, dur: 0.045, gain: 0.055 }),
+};
+
 export const sfx = {
   jump:      () => tone({ type: 'square',   from: 300, to: 680, dur: 0.12, gain: 0.35 }),
   doubleJump:() => tone({ type: 'triangle', from: 520, to: 900, dur: 0.11, gain: 0.32 }),
