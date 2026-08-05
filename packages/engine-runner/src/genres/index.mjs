@@ -10,6 +10,7 @@
 
 import PlayRunner from '../scenes/Play.mjs';
 import PlayFly, { buildTextures as flyTextures } from './flyScene.mjs';
+import PlayDash, { buildTextures as dashTextures } from './dashScene.mjs';
 import {
   PlayMemory, PlaySliding, PlayMerge, PlaySnake, buildTextures as boardTextures,
 } from './boardScenes.mjs';
@@ -33,6 +34,17 @@ export const ENGINE_GENRES = {
     },
     hasEndless: false,
     menuGround: true,
+  },
+  /**
+   * skipMenu — this genre has no level select by design. Boot goes straight into the
+   * furthest level reached, and finishing one starts the next without returning here.
+   */
+  rhythm_dash: {
+    Scene: PlayDash,
+    textures: dashTextures,
+    hasEndless: false,
+    menuGround: false,
+    skipMenu: true,
   },
   memory_match: { Scene: PlayMemory, textures: boardTextures, hasEndless: false, menuGround: false },
   sliding_puzzle: { Scene: PlaySliding, textures: boardTextures, hasEndless: false, menuGround: false },

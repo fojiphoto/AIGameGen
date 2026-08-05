@@ -9,6 +9,7 @@
 
 import { buildGame as buildRunnerGame, buildRuntimePayload as runnerPayload } from '../index.mjs';
 import * as tapToFly from './tapToFly.mjs';
+import * as rhythmDash from './rhythmDash.mjs';
 import { memoryMatch, slidingPuzzle, merge2048, snake } from './boardGames.mjs';
 
 /** Re-seed attempts before declaring a level unbuildable. */
@@ -27,6 +28,12 @@ export const GENERATION_REGISTRY = {
     build: (config, level, seed, attempt) => tapToFly.buildLevel(config, level, seed, attempt),
     validate: tapToFly.validateLevel,
     runtime: tapToFly.runtimeLevel,
+  }),
+  rhythm_dash: adapt({
+    id: 'rhythm_dash',
+    build: (config, level, seed, attempt) => rhythmDash.buildLevel(config, level, seed, attempt),
+    validate: rhythmDash.validateLevel,
+    runtime: rhythmDash.runtimeLevel,
   }),
   memory_match: adapt(memoryMatch),
   sliding_puzzle: adapt(slidingPuzzle),

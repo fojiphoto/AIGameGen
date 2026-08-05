@@ -25,6 +25,7 @@ import * as memoryMatch from './memoryMatch.mjs';
 import * as slidingPuzzle from './slidingPuzzle.mjs';
 import * as merge2048 from './merge2048.mjs';
 import * as snake from './snake.mjs';
+import * as rhythmDash from './rhythmDash.mjs';
 
 /** Clamp every numeric knob into its declared range instead of rejecting the config. */
 export function clampByRanges(raw, ranges) {
@@ -104,6 +105,11 @@ export const GENRE_REGISTRY = {
     family: 'arcade',
     blurb: 'Eat to grow, and never run into a wall or your own tail.',
   }),
+  [rhythmDash.GENRE_ID]: makeEntry(rhythmDash, {
+    label: 'Rhythm Dash',
+    family: 'reflex',
+    blurb: 'One tap, one life. Memorise the layout, no menus between attempts.',
+  }),
 };
 
 /** Ids that are fully implemented end to end (schema + generation + engine scene). */
@@ -116,6 +122,9 @@ export const PLANNED_GENRES = [
   { id: 'brick_breaker', label: 'Brick Breaker', family: 'arcade' },
   { id: 'maze_escape', label: 'Maze Escape', family: 'puzzle' },
 ];
+
+/** Genres that skip the level-select menu and drop straight into play. */
+export const SKIP_MENU_GENRES = new Set(['rhythm_dash']);
 
 export const getGenre = (id) => GENRE_REGISTRY[id] ?? null;
 export const isImplemented = (id) => Boolean(GENRE_REGISTRY[id]);

@@ -33,6 +33,13 @@ export default class Boot extends Phaser.Scene {
       const s = save.initSave(cfg.buildId);
       setMuted(s.muted);
 
+      if (genre.skipMenu) {
+        // Some genres have no level select on purpose: drop straight into the furthest
+        // level reached so a returning player is playing within a second of loading.
+        const next = Math.min(cfg.levels.length, Math.max(1, s.bestLevel + 1));
+        this.time.delayedCall(0, () => this.scene.start('Play', { level: next, attempts: 1 }));
+        return;
+      }
       this.scene.start('Menu');
     } catch (err) {
       // A crash here means a blank screen with no explanation, which is the worst

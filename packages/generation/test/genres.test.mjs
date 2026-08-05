@@ -13,7 +13,7 @@ import { buildAnyGame, buildAnyRuntimePayload, GENERATION_REGISTRY } from '../sr
 import { GENRE_REGISTRY, IMPLEMENTED_GENRES, safeParseAnyConfig } from '@forge/schema/genres';
 import { planDeterministic } from '../../ai/src/planner.mjs';
 
-const NEW_GENRES = ['tap_to_fly', 'memory_match', 'sliding_puzzle', 'merge_2048', 'snake'];
+const NEW_GENRES = ['tap_to_fly', 'memory_match', 'sliding_puzzle', 'merge_2048', 'snake', 'rhythm_dash'];
 
 const PROMPTS = [
   'neon cyberpunk city',

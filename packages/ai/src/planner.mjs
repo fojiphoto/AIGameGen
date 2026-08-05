@@ -327,6 +327,43 @@ export function buildGenreSections(genre, { rng, bias, palette, explicitRequests
         },
       };
 
+    case 'rhythm_dash': {
+      // High gravity is the signature of this genre: the jump must feel like a snap, not a
+      // float, or the whole thing reads as sluggish.
+      const gravity = Math.round(2300 * (hard ? 1.1 : easy ? 0.92 : 1));
+      const jumpVelocity = -Math.round(680 * (easy ? 1.04 : 1));
+      return {
+        player: { jumpVelocity, gravity, size: 36, hitboxScale: easy ? 0.74 : 0.8, rotationPerJump: 180 },
+        world: {
+          groundHeight: rng.int(82, 96),
+          // Only carve out a ceiling if a mechanic actually needs one.
+          ceilingHeight: hard ? 64 : 0,
+          showGrid: true,
+          parallax: 2,
+          showPulse: true,
+        },
+        difficulty: {
+          speedStart: Math.round(300 * b.speed),
+          speedEnd: Math.round(545 * b.speed),
+          curve: b.curve,
+          chunksStart: easy ? 6 : 7,
+          chunksEnd: easy ? 18 : hard ? 30 : 26,
+          tierStart: 1,
+          tierEnd: easy ? 3 : hard ? 5 : 4,
+          breatherRatioStart: easy ? 0.5 : 0.4,
+          breatherRatioEnd: easy ? 0.25 : hard ? 0.1 : 0.14,
+        },
+        features: {
+          platformsFromLevel: 3,
+          gapsFromLevel: 6,
+          jumpPadsFromLevel: 9,
+          // Ceiling hazards need a ceiling, and only the hard bias gives one.
+          ceilingSpikesFromLevel: hard ? 13 : 0,
+          gravityFlipFromLevel: 0,
+        },
+      };
+    }
+
     case 'snake':
       return {
         board: {

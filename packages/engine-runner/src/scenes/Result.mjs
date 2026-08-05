@@ -63,7 +63,11 @@ export default class Result extends Phaser.Scene {
     }
 
     const buttons = [];
-    if (d.mode === 'endless') {
+    // rhythm_dash has no menu to return to; its Result screen only appears on quit or on
+    // clearing the final level, so it offers a replay and nothing else.
+    if (d.cause === 'quit' || (win && d.unit === 'attempts')) {
+      buttons.push(['PLAY AGAIN', () => this.scene.start('Play', { level: win ? 1 : d.level, attempts: 1 })]);
+    } else if (d.mode === 'endless') {
       buttons.push(['RUN AGAIN', () => this.scene.start('Play', { mode: 'endless' })]);
     } else if (win) {
       const next = d.level + 1;
