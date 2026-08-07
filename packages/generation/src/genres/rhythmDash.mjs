@@ -54,8 +54,22 @@ export const jumpSpan = (cfg, speed) => airTime(cfg) * speed;
 // Every position and size is in J units (x) or body units (h). `tier` is 1 (trivial) to 5
 // (tight). `needs` gates a chunk behind a feature unlock so mechanics arrive gradually.
 
-const SPIKE_W = 0.16;
-const SPIKE_H = 0.62;
+/**
+ * Spike footprint: narrow and roughly as tall as the cube.
+ *
+ * These were 0.16 J wide by 0.62 body tall, which at a typical jump span works out around
+ * 47px by 18px — a squat wedge that read as a bump in the floor rather than as something
+ * lethal, and looked nothing like the genre it is selling. A spike wants to be about as tall
+ * as it is wide and about as tall as the player.
+ *
+ * Both moves are in the safe direction for the proof. Narrower means less horizontal span to
+ * clear in one arc. Taller matters only against the jump peak, and the schema already refuses
+ * any config whose peak is under 1.9 bodies, so a 0.95-body spike has better than two bodies
+ * of headroom at the worst legal tuning. The solver re-runs on every build regardless, and
+ * `every level of every generated game is finishable` would fail if either assumption were wrong.
+ */
+const SPIKE_W = 0.1;
+const SPIKE_H = 0.95;
 
 export const CHUNKS = [
   // ── tier 1: read the shape, take one jump ────────────────────────────────
