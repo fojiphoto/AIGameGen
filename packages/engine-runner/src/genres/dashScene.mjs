@@ -136,7 +136,20 @@ export default class PlayDash extends Phaser.Scene {
     /** Lethal geometry, drawn separately so it can carry its own glow without lighting up
      *  the things you are allowed to stand on. */
     this.hazardGfx = this.add.graphics().setDepth(12);
-    this.player = this.add.image(PLAYER_X, this.feetY, 'cube').setOrigin(0.5, 1).setDepth(14);
+    /**
+     * Origin is the CENTRE, not the feet.
+     *
+     * With origin (0.5, 1) — which is the natural choice when you are positioning by `feetY` —
+     * Phaser rotates the sprite about the bottom-centre point. That is fine while the cube is
+     * upright and catastrophic the moment it is not: at a quarter turn the drawn cube swings
+     * 18px sideways and 18px down, so it lands visibly shifted and half-sunk into the floor,
+     * 25px from where its hitbox actually is. Since `spinTarget` snaps to a quarter turn on
+     * every landing, that is the state the cube spends most of its life in after the first jump.
+     *
+     * Rotating about the centre costs one line in updateVisuals: the y position has to account
+     * for the squash so the feet stay planted. See the comment there.
+     */
+    this.player = this.add.image(PLAYER_X, this.feetY, 'cube').setOrigin(0.5, 0.5).setDepth(14);
 
     this.applyGlow();
 
@@ -674,11 +687,14 @@ export default class PlayDash extends Phaser.Scene {
     this.camY += (lift - this.camY) * Math.min(1, dtReal * 7);
     this.cameras.main.setScroll(0, -this.camY * 0.5);
 
-    this.player.y = this.feetY;
     this.player.setRotation(this.spin);
     this.player.setScale(1 / this.squash, this.squash);
+    // Centre origin, so the sprite's own half-height moves as it squashes. Placing the centre
+    // half a squashed body above feetY keeps the feet pinned to the surface through the whole
+    // squash-and-stretch, which is the only reason the bottom-origin version was tempting.
+    this.player.y = this.feetY - (this.cfg.player.size * this.squash) / 2;
 
-    this.trail.unshift({ y: this.feetY, r: this.spin });
+    this.trail.unshift({ y: this.feetY, r: this.spin, d: this.dist });
     if (this.trail.length > TRAIL_LEN) this.trail.pop();
     this.drawTrail(false);
 
@@ -696,6 +712,21 @@ export default class PlayDash extends Phaser.Scene {
     this.drawSpeedLines(dtReal);
   }
 
+  /**
+   * Motion ghosts — a shrinking, fading copy of the cube at each of the last few positions.
+   *
+   * Two things this has to get right, both of which it previously got wrong and which together
+   * made the trail read as a detached blob floating off the cube's shoulder rather than as
+   * motion:
+   *
+   *   • Position comes from the world distance the sample was taken at, not from a fixed
+   *     per-index pixel offset. The cube is pinned to PLAYER_X while the world scrolls past,
+   *     so a ghost belongs wherever the cube actually was — `PLAYER_X - (dist - p.d)`. Fixed
+   *     spacing detached the trail from the real path and did not respond to level speed.
+   *   • Ghosts carry the rotation of the frame they were recorded in, and shrink about their
+   *     own centre. Axis-aligned squares bottom-aligned on feetY drifted away from a spinning
+   *     cube and pooled near the floor.
+   */
   drawTrail(frozen) {
     const g = this.trailGfx;
     g.clear();
@@ -704,9 +735,18 @@ export default class PlayDash extends Phaser.Scene {
     for (let i = this.trail.length - 1; i >= 1; i--) {
       const p = this.trail[i];
       const t = 1 - i / this.trail.length;
+      const h = (size * (0.55 + t * 0.35)) / 2;
+      const cx = PLAYER_X - (this.dist - p.d);
+      const cy = p.y - size / 2;
+      const c = Math.cos(p.r);
+      const s = Math.sin(p.r);
       g.fillStyle(asInt(this.pal.player), (frozen ? 0.1 : 0.22) * t);
-      const s = size * (0.55 + t * 0.35);
-      g.fillRect(PLAYER_X - s / 2 - i * 3.2, p.y - s, s, s);
+      g.fillPoints([
+        { x: cx + h * (-c + s), y: cy + h * (-s - c) },
+        { x: cx + h * (c + s), y: cy + h * (s - c) },
+        { x: cx + h * (c - s), y: cy + h * (s + c) },
+        { x: cx + h * (-c - s), y: cy + h * (-s + c) },
+      ], true);
     }
   }
 
