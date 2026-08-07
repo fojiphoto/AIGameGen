@@ -24,7 +24,10 @@ import { VIEW_WIDTH, VIEW_HEIGHT } from '../physics.mjs';
 
 export const GENRE_ID = 'rhythm_dash';
 
+/** Relief valleys pull the curve back, which shortens the level and lowers its tier ceiling. */
 const RELIEF_FACTOR = 0.85;
+/** And this cuts the hazard budget outright, so the valley is felt and not merely calculated. */
+const RELIEF_HAZARD_FACTOR = 0.78;
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /**
@@ -178,17 +181,73 @@ const FEATURE_KEY = {
   ceiling: 'ceilingSpikesFromLevel',
 };
 
+// ── intensity envelope inside one level ─────────────────────────────────────
+
+/**
+ * How hard the level should be at each point along its own length, 0 to 1.
+ *
+ * The across-levels curve says how hard level 7 is compared to level 6. This says how hard
+ * the middle of level 7 is compared to its opening — and without it, chunks were drawn from
+ * one uniform distribution end to end, so a level was a flat wall of the same texture from
+ * the first second to the last. Twenty of those in a row is why the ladder read as one level
+ * repeating: adjacent levels differed only in a speed number, and nothing inside any of them
+ * ever changed.
+ *
+ * The shape is the one this genre is built on: a quiet opening long enough to read the level,
+ * a wave, a build, a real drop where the player gets to breathe, a second wave, the hardest
+ * run of the level, and a short calm outro so the finish is a landing rather than an ambush.
+ * Piecewise linear between the marks — smooth enough, and legible enough to reason about.
+ */
+export const PHASES = [
+  { at: 0.00, i: 0.06 }, // intro     — read the level
+  { at: 0.09, i: 0.12 },
+  { at: 0.21, i: 0.50 }, // wave one
+  { at: 0.34, i: 0.82 }, // build
+  { at: 0.40, i: 0.15 }, // drop
+  { at: 0.55, i: 0.15 }, // breather  — a plateau, not a notch. See below.
+  { at: 0.64, i: 0.72 }, // wave two
+  { at: 0.86, i: 1.00 }, // climax
+  { at: 1.00, i: 0.25 }, // outro     — land the finish
+];
+
+/** The breather window, as a fraction of the level. Matches the plateau in PHASES. */
+export const BREATHER_FROM = 0.40;
+export const BREATHER_TO = 0.55;
+
+/** Envelope value at fraction `u` through a level. Clamped, so overruns sit in the outro. */
+export function phaseIntensity(u) {
+  const x = Math.max(0, Math.min(1, u));
+  for (let k = 1; k < PHASES.length; k++) {
+    const a = PHASES[k - 1];
+    const b = PHASES[k];
+    if (x <= b.at) {
+      const t = b.at === a.at ? 1 : (x - a.at) / (b.at - a.at);
+      return a.i + (b.i - a.i) * t;
+    }
+  }
+  return PHASES[PHASES.length - 1].i;
+}
+
 // ── per-level parameters ────────────────────────────────────────────────────
 
 export function levelParams(level, config) {
   const d = config.difficulty;
   const p = config.progression;
   const t = p.levels > 1 ? (level - 1) / (p.levels - 1) : 0;
-  let eased = applyCurve(t, d.curve);
+  const raw = applyCurve(t, d.curve);
   const isRelief = p.reliefLevels.includes(level);
-  if (isRelief) eased *= RELIEF_FACTOR;
 
-  const speed = Math.round(lerp(d.speedStart, d.speedEnd, eased));
+  /**
+   * Speed comes off the UNRELIEVED curve, so the game never slows down.
+   *
+   * Relief used to scale `eased` before anything read it, which pulled speed down with
+   * everything else — level 15 came out at 413 px/s after level 14 at 415. Going backwards on
+   * the one number the player can feel continuously reads as the game losing its nerve. A
+   * valley is a drop in density, complexity and tier; the pace keeps climbing through it, and
+   * that contrast is what makes a breather feel like relief rather than like a downgrade.
+   */
+  const speed = Math.round(lerp(d.speedStart, d.speedEnd, raw));
+  const eased = isRelief ? raw * RELIEF_FACTOR : raw;
   let chunks = Math.round(lerp(d.chunksStart, d.chunksEnd, eased));
   if (isRelief) chunks = Math.max(4, Math.round(chunks * 0.85));
   const maxTier = Math.max(1, Math.round(lerp(d.tierStart, d.tierEnd, eased)));
@@ -218,9 +277,14 @@ export function buildLevel(config, level, baseSeed, attempt = 0) {
   const B = body(config);
   const groundTop = VIEW_HEIGHT - config.world.groundHeight;
 
-  const pool = CHUNKS.filter((c) => c.tier <= P.maxTier && (!c.needs || P.unlocked.has(c.needs)));
+  /**
+   * The pool is gated by feature unlock only. The TIER gate moved to per-slot, driven by
+   * where in the level we are — see the envelope below. Applying one tier ceiling to a whole
+   * level is what made every level a flat wall of the same thing.
+   */
+  const pool = CHUNKS.filter((c) => !c.needs || P.unlocked.has(c.needs));
   const rests = pool.filter((c) => c.items.length === 0);
-  const active = pool.filter((c) => c.items.length > 0);
+  const active = pool.filter((c) => c.items.length > 0 && c.tier <= P.maxTier);
   if (!active.length) {
     return { level: null, fatal: `no usable chunk at level ${level} (tier<=${P.maxTier})` };
   }
@@ -233,34 +297,184 @@ export function buildLevel(config, level, baseSeed, attempt = 0) {
   const platforms = [];
   const used = [];
 
+  const hazCount = (c) =>
+    c.items.filter((it) => it.t === 'spike' || it.t === 'block' || it.t === 'gap' || it.t === 'ceil').length;
+  const mean = (arr, f) => arr.reduce((s, c) => s + f(c), 0) / Math.max(1, arr.length);
+  const meanW = mean(pool, (c) => c.w);
+  const meanActiveW = mean(active, (c) => c.w);
+  const meanHaz = mean(active, hazCount);
+
   /**
-   * Hazard count is driven by the curve, not left to chunk luck.
+   * A level is a WIDTH budget, not a chunk-count budget, and the envelope is indexed against
+   * that width.
    *
-   * Selecting chunks purely at random let the hazard count swing by 50% between adjacent
-   * levels, which showed up as a real regression: level 19 came out measurably easier than
-   * level 18. Targeting a hazard budget makes the ramp monotonic by construction instead of
-   * hoping the dice cooperate.
+   * Two reasons, both found by measuring rather than by reasoning:
+   *
+   * Chunks run from 1.0 to 4.2 jump-spans wide, and the narrow ones are exactly the rests a
+   * breather is made of — so counting chunks compressed the quiet stretches and stretched the
+   * busy ones, and the dip landed around two thirds of the way in instead of at the 0.43 the
+   * phase table asks for. The player experiences metres.
+   *
+   * And when the loop ran until the hazard budget was met, every rest the envelope spent
+   * pushed the finish line further out: level 10 came out at 59 seconds, which on one life is
+   * an endurance test rather than a level. Fixing the width means rests DISPLACE hazards
+   * instead of postponing them, so a level's duration is a property of its position on the
+   * ladder and nothing else.
    */
-  const targetHazards = Math.max(2, Math.round(P.chunks * lerp(0.45, 1.15, P.eased)));
+  const targetW = Math.max(1, P.chunks * meanW);
+
+  /**
+   * Hazard count is driven by the curve, not left to chunk luck — random selection let the
+   * count swing 50% between adjacent levels, which once made level 19 easier than level 18.
+   *
+   * It is expressed as a fraction of what the width could hold if every slot were a hazard
+   * chunk. Expressing it as a multiple of the chunk count instead is what produced the guard
+   * bug below: the target could exceed what the level had room for, and the only way to
+   * satisfy it was to refuse every rest.
+   */
+  const maxHaz = (targetW / Math.max(0.1, meanActiveW)) * meanHaz;
+  /**
+   * The top of the range is 0.75, not 1.0, and the slack is the point: it is the room the
+   * breather lives in. A budget that consumes the whole width leaves nowhere to be quiet, and
+   * the envelope has nothing to work with.
+   */
+  let targetHazards = Math.max(3, Math.round(maxHaz * lerp(0.55, 0.75, P.eased)));
+  /**
+   * A relief level takes a direct cut to its hazard budget, on top of the shorter length and
+   * lower tier it already gets from the reduced `eased`.
+   *
+   * Those indirect effects came to about fifteen percent, which sounds like a dip and measured
+   * as one or two hazards — inside the rounding, and invisible next to the run-to-run variation
+   * in where chunks land. Relief levels were coming out as hard as the level before them and
+   * sometimes harder. If a valley is going to be in the design it has to be big enough to feel,
+   * so this is explicit and it is large.
+   */
+  if (P.isRelief) targetHazards = Math.max(3, Math.round(targetHazards * RELIEF_HAZARD_FACTOR));
 
   // Always open with a rest so the player sees the cube before anything happens.
   const sequence = [rests[0] ?? active[0]];
   let placed = 0;
-  const weighted = active.map((c) => ({ ...c, weight: 6 - Math.abs(c.tier - P.maxTier) }));
+  let accW = sequence[0].w;
+  let breatherPlaced = false;
 
-  for (let i = 1; i < P.chunks * 2 && sequence.length < P.chunks * 1.6; i++) {
-    const shortfall = targetHazards - placed;
-    const remaining = Math.max(1, P.chunks - sequence.length);
-    // Take a breather only when the hazard budget is comfortably on track.
-    const canRest = rests.length && shortfall < remaining && rng.chance(P.breather);
-    if (canRest) {
-      sequence.push(rng.pick(rests));
+  for (let guard = 0; accW < targetW && guard < P.chunks * 5; guard++) {
+    // Where we are inside this level, and how hard it should be right here.
+    const u = accW / targetW;
+    const local = phaseIntensity(u);
+
+    /**
+     * The level's own hardest chunks are reserved for the level's own hardest moment. A
+     * single ceiling applied uniformly meant a level was the same texture end to end; the
+     * envelope means the intro uses tier 1, the climax uses everything, and the breather
+     * drops back to tier 1 again — which is the shape the genre is built on.
+     */
+    const tierCap = Math.max(1, Math.min(P.maxTier, Math.round(lerp(1, P.maxTier, local))));
+
+    /**
+     * Rest or hazard, decided from the density still owed rather than from a fixed chance.
+     *
+     * Earlier versions asked "can I afford a rest?" and then rolled a separate envelope-shaped
+     * probability. Two things went wrong with that. The affordability guard was written in
+     * slots (`shortfall < P.chunks - sequence.length`), which on the harder half of the ladder
+     * is false on the first iteration and stays false — it read as "never rest" and silently
+     * disabled the envelope, so levels 9 and 10 had no quiet stretch at all. And once the
+     * budget WAS met nothing stopped the dice from placing more hazards, so the actual count
+     * overshot the target by a random margin — which swamped the 15% relief dip and made
+     * relief levels come out as hard as, or harder than, the level before.
+     *
+     * `hazardShare` is the fraction of the remaining width that has to be hazard chunks to
+     * land on the budget. Resting is what happens with the width that is left over, and the
+     * envelope only decides WHERE that spare width gets spent — heavily in the breather,
+     * barely at all in the climax. Because the share is recomputed every slot, the level
+     * self-corrects and finishes on its target instead of near it.
+     */
+    const inBreather = u >= BREATHER_FROM && u <= BREATHER_TO;
+    const widthLeft = Math.max(0.1, targetW - accW);
+    const hazardShare = Math.min(
+      1,
+      (((targetHazards - placed) / Math.max(0.1, meanHaz)) * meanActiveW) / widthLeft,
+    );
+    // Spend the spare width unevenly: the breather gets much more than its share, the climax
+    // almost none. Averaged over the level this still lands on hazardShare.
+    /**
+     * The breather is PLACED, not rolled for.
+     *
+     * Three attempts at making it probabilistic all left levels where it simply did not
+     * happen — a multiplier on the spare hazard share, then a floor under that, then a
+     * stronger bias — because on a dense level there are only about four chunk slots inside
+     * the window, and even a 90% rest chance misses often enough to matter. One level in fifty
+     * coming out with no lull is one level in fifty that reads as a flat wall, and the whole
+     * point of the envelope is that it is a design element rather than a tendency.
+     *
+     * So: on first entering the window, lay down a run of the longest rest available, wide
+     * enough to fill it. The displaced hazards are not lost — `hazardShare` is recomputed from
+     * the width that remains, so they come back in the waves either side, which is where they
+     * belong. Total level width is unchanged, because the loop still terminates on `targetW`.
+     */
+    if (inBreather && !breatherPlaced) {
+      breatherPlaced = true;
+      const longRest = rests.reduce((a, b) => (b.w > a.w ? b : a), rests[0]);
+      if (longRest) {
+        const want = (BREATHER_TO - BREATHER_FROM) * targetW;
+        for (let spent = 0; spent < want && accW < targetW; spent += longRest.w) {
+          sequence.push(longRest);
+          accW += longRest.w;
+        }
+        continue;
+      }
+    }
+
+    /**
+     * Everywhere else, resting is the default and the hazard budget is what buys it back; the
+     * envelope decides how eagerly each part of the level spends.
+     *
+     * Written the other way round — rest chance as a multiple of the SPARE share — once the
+     * budget was met the climax bias still pulled rest chance down to a quarter, so three
+     * quarters of the remaining slots kept placing hazards and the level overshot its target
+     * by a wide random margin. That overshoot is what swallowed the relief dip and let level 4
+     * come out no easier than level 3.
+     */
+    const hazBias = lerp(0.55, 1.6, local);
+    const restChance = Math.max(0, Math.min(0.92, 1 - hazardShare * hazBias));
+    if (rests.length && rng.chance(restChance)) {
+      // Through the breather take the longest rest available, so it reads as a stretch of
+      // empty ground rather than a one-beat gap between hazards.
+      const rest = inBreather ? rests.reduce((a, b) => (b.w > a.w ? b : a)) : rng.pick(rests);
+      sequence.push(rest);
+      accW += rest.w;
       continue;
     }
-    const chunk = rng.weighted(weighted);
+
+    const atTier = active.filter((c) => c.tier <= tierCap);
+    const usable = atTier.length ? atTier : active;
+    const chunk = rng.weighted(usable.map((c) => ({ ...c, weight: 6 - Math.abs(c.tier - tierCap) })));
     sequence.push(chunk);
-    placed += chunk.items.filter((it) => it.t === 'spike' || it.t === 'block' || it.t === 'gap' || it.t === 'ceil').length;
-    if (placed >= targetHazards && sequence.length >= P.chunks) break;
+    accW += chunk.w;
+    placed += hazCount(chunk);
+  }
+
+  /**
+   * A feature that is unlocked but never appears is a promise the level does not keep.
+   *
+   * `platformsFromLevel` said 3, and platforms first showed up at level 16. The tier gate was
+   * quietly overruling the feature schedule: the cheapest platform chunk is tier 3, and the
+   * tier ceiling does not reach 3 until much later, so the unlock fired and nothing changed.
+   * Same for jump pads (cheapest chunk tier 4) and ceiling spikes (tier 5).
+   *
+   * So every unlocked feature is guaranteed at least one appearance, and the tier cap is
+   * deliberately bypassed to do it. The chosen chunk is always the LOWEST-tier one for that
+   * feature — introducing a mechanic with its gentlest form is what a designer would do, and
+   * picking at random could open with `gap_to_plat` at level 3. The solver still has to sign
+   * off on the result, and buildLevel retries with a fresh seed if it does not.
+   */
+  for (const feature of P.unlocked) {
+    if (sequence.some((c) => c.needs === feature)) continue;
+    const forFeature = CHUNKS.filter((c) => c.needs === feature);
+    if (!forFeature.length) continue;
+    const lowest = Math.min(...forFeature.map((c) => c.tier));
+    const chunk = rng.pick(forFeature.filter((c) => c.tier === lowest));
+    // Drop it into the second wave: warmed up, but short of the climax.
+    sequence.splice(Math.max(1, Math.round(sequence.length * 0.62)), 0, chunk);
   }
 
   for (const chunk of sequence) {

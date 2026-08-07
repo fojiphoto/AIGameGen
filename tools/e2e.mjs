@@ -182,8 +182,11 @@ try {
   anonGameId = gen.data.game.id;
   ok('anonymous user can generate', `${gen.data.game.title}, ${gen.data.game.report.totalObstacles} obstacles`);
 
-  if (gen.data.game.report.levelsBuilt === 20) ok('20/20 levels built and validated');
-  else bad('20/20 levels built', `got ${gen.data.game.report.levelsBuilt}`);
+  // Ladder length is per-genre now, so assert against what the game asked for rather than 20.
+  const built = gen.data.game.report.levelsBuilt;
+  const asked = gen.data.game.report.levelsRequested ?? 20;
+  if (built === asked) ok(`${built}/${asked} levels built and validated`);
+  else bad(`${asked} levels built`, `got ${built}`);
 
   const mine = await anon.req('/api/games', { expect: 200 });
   if (mine.data.games.some((g) => g.id === anonGameId)) ok('anonymous game visible to its creator');
@@ -243,7 +246,8 @@ try {
   } else bad('refine applies a patch', JSON.stringify(ref.data).slice(0, 160));
 
   const detail = await user.req(`/api/games/${gameId}`, { expect: 200 });
-  if (detail.data.game.report?.levelsBuilt === 20) ok('refined game still has 20 valid levels');
+  if (detail.data.game.report?.levelsBuilt === (detail.data.game.report?.levelsRequested ?? 20))
+    ok('refined game still has a full set of valid levels');
   else bad('refined game still valid', 'report missing or short');
   if (detail.data.versions.length === 2) ok('version history recorded');
   else bad('version history recorded', `${detail.data.versions.length} versions`);

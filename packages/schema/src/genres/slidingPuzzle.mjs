@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import { MetaSchema, ThemeSchema, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
+import { MetaSchema, ThemeSchema, checkLadder, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
 
 export const GENRE_ID = 'sliding_puzzle';
 
@@ -45,6 +45,7 @@ export const ConfigSchema = z
     copy: CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     const b = cfg.board;
     const d = cfg.difficulty;
     if (b.sizeEnd < b.sizeStart) {

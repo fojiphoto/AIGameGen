@@ -25,7 +25,7 @@
  */
 
 import { z } from 'zod';
-import { MetaSchema, ThemeSchema, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
+import { MetaSchema, ThemeSchema, checkLadder, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
 
 export const GENRE_ID = 'rhythm_dash';
 
@@ -51,7 +51,7 @@ export const WorldSchema = z.object({
 
 export const DifficultySchema = z.object({
   /**
-   * Constant scroll speed for the whole level. The ramp across the 20 levels comes from
+   * Constant scroll speed for the whole level. The ramp across the ladder comes from
    * chunk difficulty and density, not from acceleration — accelerating inside a level would
    * make a memorised layout stop working halfway through.
    */
@@ -93,6 +93,7 @@ export const ConfigSchema = z
     copy: CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     const d = cfg.difficulty;
     if (d.speedEnd <= d.speedStart) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['difficulty', 'speedEnd'], message: 'speedEnd must exceed speedStart' });
@@ -241,4 +242,4 @@ export const TOOL_FIELDS = {
   },
 };
 
-export const DEFAULT_TAGLINE = 'one tap · one life · 20 levels';
+export const DEFAULT_TAGLINE = 'one tap · one life · 10 levels';

@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { MetaSchema, ThemeSchema, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
+import { MetaSchema, ThemeSchema, checkLadder, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
 
 export const GENRE_ID = 'memory_match';
 
@@ -50,6 +50,7 @@ export const ConfigSchema = z
     copy: CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     const b = cfg.board;
     for (const [label, cols, rows] of [['start', b.colsStart, b.rowsStart], ['end', b.colsEnd, b.rowsEnd]]) {
       if ((cols * rows) % 2 !== 0) {

@@ -92,7 +92,7 @@ export async function generateGame({
     : hashSeed(`${prompt}:${planned.config.genre}:${ownerKey}`).toString(36);
   planned.config.meta.packageId = packageIdFor(id);
 
-  onStage('building_levels', 'generating 20 levels');
+  onStage('building_levels', `generating ${planned.config.progression.levels} levels`);
   const { levels, validation, ladder, report } = buildGame(planned.config);
   if (!report.ok) {
     const e = new Error(`Level generation failed: ${report.fatals.join('; ')}`);

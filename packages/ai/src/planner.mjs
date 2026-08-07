@@ -59,11 +59,21 @@ function makeTitle(rng, paletteId) {
   return `${rng.pick(w.adj)} ${rng.pick(w.noun)}`;
 }
 
-function makeLevelNames(rng, paletteId) {
+/**
+ * One name per level, with an intensity tag that tracks position on the ladder.
+ *
+ * The tag is sampled by fraction, not by index. INTENSITY is written for a twenty-level
+ * ladder, so indexing it directly on a ten-level one would stop at "Faster" and never reach
+ * the names that tell the player they are near the end — the level titles would quietly
+ * contradict the difficulty curve.
+ */
+function makeLevelNames(rng, paletteId, count = 20) {
   const zones = rng.shuffle(ZONE_WORDS[paletteId] ?? ZONE_WORDS.forge_green);
-  return Array.from({ length: 20 }, (_, i) => {
+  return Array.from({ length: count }, (_, i) => {
     const zone = zones[i % zones.length];
-    const tag = INTENSITY[i];
+    const tag = INTENSITY[count > 1
+      ? Math.round((i / (count - 1)) * (INTENSITY.length - 1))
+      : 0];
     const base = `${zone} ${String(i + 1).padStart(2, '0')}`;
     const name = tag ? `${base} — ${tag}` : base;
     return name.slice(0, 34);
@@ -342,23 +352,57 @@ export function buildGenreSections(genre, { rng, bias, palette, explicitRequests
           parallax: 2,
           showPulse: true,
         },
+        /**
+         * Ten levels, not twenty.
+         *
+         * At twenty the ramp had to be spread so thin that adjacent levels were
+         * indistinguishable — levels 1 to 8 all came out at roughly ten seconds with four
+         * hazards and a speed spread of nine percent, which is under what anyone can feel.
+         * Ten levels means each step is a ninth of the range instead of a nineteenth, and
+         * every one of them lands.
+         *
+         * Valleys at 4 and 8 rather than 8 and 15: two dips on a ten-rung ladder, placed so
+         * the player gets a breather right after the first real difficulty spike and again
+         * before the last two.
+         */
+        progression: { levels: 10, mode: 'levels_only', endlessUnlockAt: 10, reliefLevels: [4, 8] },
         difficulty: {
-          speedStart: Math.round(300 * b.speed),
-          speedEnd: Math.round(545 * b.speed),
-          curve: b.curve,
-          chunksStart: easy ? 6 : 7,
-          chunksEnd: easy ? 18 : hard ? 30 : 26,
+          speedStart: Math.round(340 * b.speed),
+          speedEnd: Math.round(620 * b.speed),
+          /**
+           * Linear, deliberately, where the other genres ease in. An ease-in spends its flat
+           * region on the early levels, which is affordable across twenty and is most of the
+           * ladder across ten. The gentle opening comes from the phase envelope inside each
+           * level instead — see PHASES in the generator — which is a better place for it: it
+           * makes level 1 open calmly without making level 3 a copy of level 2.
+           */
+          curve: 'linear',
+          // Level 1 is an introduction, not an empty corridor. The old start of 7 chunks put
+          // four hazards in ten seconds, which reads as nothing happening.
+          chunksStart: easy ? 11 : 14,
+          chunksEnd: easy ? 20 : hard ? 30 : 26,
           tierStart: 1,
-          tierEnd: easy ? 3 : hard ? 5 : 4,
-          breatherRatioStart: easy ? 0.5 : 0.4,
-          breatherRatioEnd: easy ? 0.25 : hard ? 0.1 : 0.14,
+          tierEnd: easy ? 3 : hard ? 5 : 5,
+          breatherRatioStart: easy ? 0.5 : 0.42,
+          breatherRatioEnd: easy ? 0.25 : hard ? 0.08 : 0.12,
         },
+        /**
+         * Respread over ten, and deliberately off the relief levels.
+         *
+         * A mechanic every two levels is the "something new is happening" cadence; on the
+         * twenty-level schedule jump pads did not arrive until level 9 of 20, which most
+         * players never reached. But none of them may land on 4 or 8: a breather level that
+         * also introduces a new hazard is not a breather, and it measurably was not — level 4
+         * came out busier than level 3 because the gap unlock landed on top of it.
+         *
+         * So: platforms 3, gaps 5, pads 7, ceilings 9. New thing, consolidate, breathe.
+         */
         features: {
           platformsFromLevel: 3,
-          gapsFromLevel: 6,
-          jumpPadsFromLevel: 9,
+          gapsFromLevel: 5,
+          jumpPadsFromLevel: 7,
           // Ceiling hazards need a ceiling, and only the hard bias gives one.
-          ceilingSpikesFromLevel: hard ? 13 : 0,
+          ceilingSpikesFromLevel: hard ? 9 : 0,
           gravityFlipFromLevel: 0,
         },
       };
@@ -444,9 +488,15 @@ export function planDeterministic(prompt, opts = {}) {
         spritePack: null,
       },
       ...sections,
-      progression: { levels: 20, mode: 'levels_only', endlessUnlockAt: 20, reliefLevels: [8, 15] },
+      // A genre may set its own ladder length and relief valleys; twenty levels with valleys at
+      // 8 and 15 is the default, not a rule. Spread order matters: `sections.progression` has to
+      // merge INTO the default rather than be overwritten by the key that follows it.
+      progression: {
+        levels: 20, mode: 'levels_only', endlessUnlockAt: 20, reliefLevels: [8, 15],
+        ...(sections.progression ?? {}),
+      },
       copy: {
-        levelNames: makeLevelNames(rng, pal.id),
+        levelNames: makeLevelNames(rng, pal.id, sections.progression?.levels ?? 20),
         tutorial: GENRE_TUTORIAL[genre] ?? 'TAP to play',
         winMsg: 'LEVEL CLEAR',
         loseMsg: GENRE_LOSE[genre] ?? 'TRY AGAIN',

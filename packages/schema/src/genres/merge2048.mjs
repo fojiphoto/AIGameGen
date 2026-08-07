@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import { MetaSchema, ThemeSchema, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
+import { MetaSchema, ThemeSchema, checkLadder, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
 
 export const GENRE_ID = 'merge_2048';
 
@@ -52,6 +52,7 @@ export const ConfigSchema = z
     copy: CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     const d = cfg.difficulty;
     const cap = maxReachableTile(cfg.board.size * cfg.board.size);
     for (const key of ['targetStart', 'targetEnd']) {

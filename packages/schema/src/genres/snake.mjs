@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { MetaSchema, ThemeSchema, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
+import { MetaSchema, ThemeSchema, checkLadder, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
 
 export const GENRE_ID = 'snake';
 
@@ -45,6 +45,7 @@ export const ConfigSchema = z
     copy: CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     const d = cfg.difficulty;
     const cells = cfg.board.cols * cfg.board.rows;
     if (d.stepMsEnd >= d.stepMsStart) {

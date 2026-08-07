@@ -129,16 +129,62 @@ export const ObstacleSchema = z.object({
   motionSpeed:   z.number().min(0).max(6).default(0),
 });
 
+export const MIN_LADDER = 8;
+export const MAX_LADDER = 20;
+
 export const ProgressionSchema = z.object({
-  levels:          z.literal(20).default(20),
+  /**
+   * Ladder length. This was pinned at exactly 20 for every genre, which is the right default
+   * and was the wrong constraint: how many levels a ladder needs is a property of the genre,
+   * not of the platform. A one-life reflex game asks for a short, dense ladder where every
+   * step is felt — twenty of them means twenty nearly-identical levels, which is what
+   * rhythm_dash shipped. Everything else still defaults to 20 and is unaffected.
+   */
+  levels:          z.number().int().min(MIN_LADDER).max(MAX_LADDER).default(MAX_LADDER),
   mode:            z.enum(['hybrid', 'levels_only', 'endless_only']).default('hybrid'),
-  endlessUnlockAt: z.number().int().min(1).max(20).default(20),
+  endlessUnlockAt: z.number().int().min(1).max(MAX_LADDER).default(MAX_LADDER),
   /** levels that dip easier to create rhythm (§C2 relief valleys) */
-  reliefLevels:    z.array(z.number().int().min(1).max(20)).max(6).default([8, 15]),
-});
+  reliefLevels:    z.array(z.number().int().min(1).max(MAX_LADDER)).max(6).default([8, 15]),
+})
+  .superRefine((p, ctx) => {
+    // A relief valley or an endless unlock pointing past the end of the ladder is a config
+    // that silently does nothing, which is worse than one that fails loudly.
+    if (p.endlessUnlockAt > p.levels) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom, path: ['endlessUnlockAt'],
+        message: `endlessUnlockAt (${p.endlessUnlockAt}) is past the last level (${p.levels})`,
+      });
+    }
+    const past = p.reliefLevels.filter((l) => l > p.levels);
+    if (past.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom, path: ['reliefLevels'],
+        message: `relief levels ${past.join(', ')} are past the last level (${p.levels})`,
+      });
+    }
+  });
+
+/**
+ * Cross-check that a config carries a name for every level on its ladder.
+ *
+ * `levelNames` and `progression.levels` live in different objects, so neither schema can check
+ * this alone — it has to be done by whoever composes them. Every genre config calls this from
+ * its own superRefine. Without it, shortening a ladder without shortening the name list is a
+ * config that parses and then hands the builder `undefined` for a level title.
+ */
+export function checkLadder(cfg, ctx) {
+  const want = cfg.progression?.levels;
+  const got = cfg.copy?.levelNames?.length;
+  if (Number.isInteger(want) && Number.isInteger(got) && got < want) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom, path: ['copy', 'levelNames'],
+      message: `${got} level names for a ${want}-level ladder`,
+    });
+  }
+}
 
 export const CopySchema = z.object({
-  levelNames: z.array(z.string().min(1).max(34)).length(20),
+  levelNames: z.array(z.string().min(1).max(34)).min(MIN_LADDER).max(MAX_LADDER),
   tutorial:   z.string().max(120).default('TAP or SPACE to jump'),
   winMsg:     z.string().max(60).default('LEVEL CLEAR'),
   loseMsg:    z.string().max(60).default('CRASHED'),
@@ -163,6 +209,7 @@ export const GameConfigSchema = z
     copy:          CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     if (cfg.difficulty.maxSpeed <= cfg.difficulty.startSpeed) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

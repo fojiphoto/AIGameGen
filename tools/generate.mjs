@@ -64,7 +64,7 @@ if (!report.ok) {
   for (const c of validation.curveIssues) console.error(`   curve: ${c}`);
   process.exit(1);
 }
-log(`\x1b[32m✓\x1b[0m levels          ${report.levelsBuilt}/20 valid    ${Date.now() - tBuild}ms`);
+log(`\x1b[32m✓\x1b[0m levels          ${report.levelsBuilt}/${report.levelsRequested} valid    ${Date.now() - tBuild}ms`);
 log(`\x1b[32m✓\x1b[0m validated       ${report.totalObstacles} obstacles, all beatable`);
 if (report.levelsNeedingRetry.length) log(`  \x1b[33m!\x1b[0m re-seeded: L${report.levelsNeedingRetry.join(', L')}`);
 if (report.levelsRelaxed.length) log(`  \x1b[33m!\x1b[0m relaxed:   L${report.levelsRelaxed.join(', L')}`);
@@ -89,7 +89,7 @@ log(`\n\x1b[1m${config.meta.title}\x1b[0m — ${config.meta.tagline}`);
 log(`genre    ${config.genre}`);
 log(`package  ${config.meta.packageId}`);
 log(`seed     ${config.meta.seed}   ·   palette ${config.theme.palette.bg} / ${config.theme.palette.player}`);
-log(`playtime ~${report.estTotalMinutes} min across 20 levels`);
+log(`playtime ~${report.estTotalMinutes} min across ${config.progression.levels} levels`);
 if (config.obstacles) {
   log(`obstacles ${config.obstacles.map((o) => `${o.id}@L${o.introAtLevel}`).join('  ')}`);
 }

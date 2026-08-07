@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import { MetaSchema, ThemeSchema, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
+import { MetaSchema, ThemeSchema, checkLadder, ProgressionSchema, CopySchema, CURVE_SHAPES } from '../index.mjs';
 
 export const GENRE_ID = 'tap_to_fly';
 
@@ -71,6 +71,7 @@ export const ConfigSchema = z
     copy: CopySchema,
   })
   .superRefine((cfg, ctx) => {
+    checkLadder(cfg, ctx);
     const d = cfg.difficulty;
     if (d.maxSpeed <= d.startSpeed) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['difficulty', 'maxSpeed'], message: 'maxSpeed must exceed startSpeed' });
