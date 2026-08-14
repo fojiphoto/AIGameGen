@@ -43,6 +43,13 @@ driver behaves the same as the synchronous one.
 import asyncio
 import sys
 
+# pygame is imported HERE, at the top of the entry point, and that is load-bearing rather than
+# stylistic. pygbag hooks this import to wire up its WebAssembly bindings, and reaching pygame for
+# the first time from somewhere deeper — inside a coroutine, or through a package import — leaves a
+# module object whose members are missing. The symptom is a bare
+# `module 'pygame' has no attribute 'init'` from the first line that tries to use it.
+import pygame  # noqa: F401  (imported for its side effects on the web)
+
 
 async def main():
     from neoncoil.app import App

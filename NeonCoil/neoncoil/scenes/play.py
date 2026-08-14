@@ -29,9 +29,23 @@ from ..config import (
 from ..entities import ActivePowers, ObstacleField, PickupField, PowerField, Snake
 from ..fx import Floaters, Particles, Ripples, Screen, ease_out_back, ease_out_cubic
 
-ARENA_RECT = pygame.Rect(int(ARENA[0]), int(ARENA[1]), int(ARENA[2]), int(ARENA[3]))
-
 INTRO_TIME = 1.15
+
+#: The playfield, built on first use rather than at import.
+#:
+#: `pygame.Rect` at module scope is fine on a desktop and fatal in the browser. pygbag's pygame is
+#: a lazy package whose members are not all present the moment the module object exists, so
+#: importing this file raised `module 'pygame' has no attribute 'Rect'` before a single line of the
+#: game ran — and the page sat on "Loading, please wait" with the real traceback buried in a
+#: terminal element nobody was looking at. Nothing may CALL pygame at import time.
+_arena_rect: pygame.Rect | None = None
+
+
+def arena_rect() -> pygame.Rect:
+    global _arena_rect
+    if _arena_rect is None:
+        _arena_rect = pygame.Rect(int(ARENA[0]), int(ARENA[1]), int(ARENA[2]), int(ARENA[3]))
+    return _arena_rect
 
 
 class PlayScene(Scene):
@@ -40,7 +54,7 @@ class PlayScene(Scene):
         # Gameplay wants the backdrop present but quiet: fewer blobs and a lower intensity, so
         # the arena is the thing the eye reads.
         self.backdrop = Backdrop((GAME_W, GAME_H), intensity=0.55, seed=23, blobs=3)
-        self.frame = ArenaFrame(ARENA_RECT)
+        self.frame = ArenaFrame(arena_rect())
         self.particles = Particles()
         self.floaters = Floaters()
         self.ripples = Ripples()
@@ -69,12 +83,12 @@ class PlayScene(Scene):
         self.screen_fx.enabled = st.get("shake", True)
 
         skin_key = self.app.save.data.get("skin", theme.DEFAULT_SKIN)
-        self.snake = Snake(ARENA_RECT.centerx - 120, ARENA_RECT.centery, 0.0, skin_key)
+        self.snake = Snake(arena_rect().centerx - 120, arena_rect().centery, 0.0, skin_key)
         self.snake.invuln = INTRO_TIME + 0.35
 
-        self.field = PickupField(ARENA_RECT, self.rng)
-        self.powers = PowerField(ARENA_RECT, self.rng)
-        self.obstacles = ObstacleField(ARENA_RECT, self.rng)
+        self.field = PickupField(arena_rect(), self.rng)
+        self.powers = PowerField(arena_rect(), self.rng)
+        self.obstacles = ObstacleField(arena_rect(), self.rng)
         self.active = ActivePowers()
         self.field.ensure_food(self.snake, self.obstacles.items)
 
@@ -316,7 +330,7 @@ class PlayScene(Scene):
         self.level_flash = 1.0
         self.wall_pulse = 1.0
         audio.level_up()
-        self.floaters.add(GAME_W // 2, ARENA_RECT.top + 96, f"LEVEL {self.level}",
+        self.floaters.add(GAME_W // 2, arena_rect().top + 96, f"LEVEL {self.level}",
                           theme.ACCENT, size=40, life=1.4, vy=-24)
         self.screen_fx.kick(6.0)
         self.screen_fx.do_flash(theme.ACCENT, 0.2)
@@ -351,13 +365,13 @@ class PlayScene(Scene):
                 self.challenge_flash = 1.0
                 audio.level_up()
                 self.score += 250
-                self.floaters.add(GAME_W // 2, ARENA_RECT.top + 140, "OBJECTIVE COMPLETE",
+                self.floaters.add(GAME_W // 2, arena_rect().top + 140, "OBJECTIVE COMPLETE",
                                   theme.ACCENT_2, size=30, life=1.5, vy=-20)
-                self.floaters.add(GAME_W // 2, ARENA_RECT.top + 180, "+250", theme.GOLD,
+                self.floaters.add(GAME_W // 2, arena_rect().top + 180, "+250", theme.GOLD,
                                   size=22, life=1.3, vy=-18)
                 self.screen_fx.kick(7.0)
                 self.screen_fx.do_flash(theme.ACCENT_2, 0.3)
-                self.particles.ring((GAME_W // 2, ARENA_RECT.top + 150), 30, theme.ACCENT_2,
+                self.particles.ring((GAME_W // 2, arena_rect().top + 150), 30, theme.ACCENT_2,
                                     radius_speed=(220, 400), life=(0.5, 0.9))
                 if self.challenge_index >= len(theme.CHALLENGES):
                     self._die("complete")
@@ -371,12 +385,12 @@ class PlayScene(Scene):
         if self.active.ghost:
             # Ghost passes through obstacles but is still bounded by the arena, so it cannot be
             # used to park outside the playfield.
-            if snake.outside(ARENA_RECT):
-                snake.clamp_into(ARENA_RECT)
+            if snake.outside(arena_rect()):
+                snake.clamp_into(arena_rect())
                 self.wall_pulse = max(self.wall_pulse, 0.5)
             return
 
-        if snake.outside(ARENA_RECT):
+        if snake.outside(arena_rect()):
             if self._absorb("wall"):
                 return
             self._die("wall")
@@ -400,13 +414,13 @@ class PlayScene(Scene):
         if cause == "wall":
             # Whichever edge is closest wins; on a corner the two combine into a diagonal.
             nx = ny = 0.0
-            if snake.x - ARENA_RECT.left < HEAD_RADIUS * 1.5:
+            if snake.x - arena_rect().left < HEAD_RADIUS * 1.5:
                 nx = 1.0
-            elif ARENA_RECT.right - snake.x < HEAD_RADIUS * 1.5:
+            elif arena_rect().right - snake.x < HEAD_RADIUS * 1.5:
                 nx = -1.0
-            if snake.y - ARENA_RECT.top < HEAD_RADIUS * 1.5:
+            if snake.y - arena_rect().top < HEAD_RADIUS * 1.5:
                 ny = 1.0
-            elif ARENA_RECT.bottom - snake.y < HEAD_RADIUS * 1.5:
+            elif arena_rect().bottom - snake.y < HEAD_RADIUS * 1.5:
                 ny = -1.0
             if nx or ny:
                 return (nx, ny)
@@ -443,7 +457,7 @@ class PlayScene(Scene):
         # tenth of a second before the same collision fires again.
         nx, ny = self._hazard_normal(cause)
         snake.deflect(nx, ny, push=HEAD_RADIUS * 1.4)
-        snake.clamp_into(ARENA_RECT.inflate(-HEAD_RADIUS * 2, -HEAD_RADIUS * 2))
+        snake.clamp_into(arena_rect().inflate(-HEAD_RADIUS * 2, -HEAD_RADIUS * 2))
         snake.invuln = RESPAWN_INVULN
         return True
 
@@ -503,7 +517,7 @@ class PlayScene(Scene):
         self.frame.draw_under(world)
 
         clip = world.get_clip()
-        world.set_clip(ARENA_RECT)
+        world.set_clip(arena_rect())
         self.obstacles.draw(world)
         self.field.draw(world)
         self.powers.draw(world)
@@ -665,7 +679,7 @@ class PlayScene(Scene):
             k = min(1.0, self.state_t / 0.4)
             fade = 1.0 if self.state_t < INTRO_TIME - 0.3 else \
                 max(0.0, 1.0 - (self.state_t - (INTRO_TIME - 0.3)) / 0.3)
-            cx, cy = GAME_W // 2, ARENA_RECT.centery - 40
+            cx, cy = GAME_W // 2, arena_rect().centery - 40
             scale = 0.72 + 0.28 * ease_out_back(k, 2.0)
             fonts.draw(surf, self.mode.name, (cx, cy), int(58 * scale), theme.TEXT,
                        anchor="center", tracking=7.0, glow=self.mode.color,
@@ -681,7 +695,7 @@ class PlayScene(Scene):
 
         if self.level_flash > 0.02:
             k = self.level_flash
-            fonts.draw(surf, f"LEVEL {self.level}", (GAME_W // 2, ARENA_RECT.top + 54),
+            fonts.draw(surf, f"LEVEL {self.level}", (GAME_W // 2, arena_rect().top + 54),
                        int(30 + 14 * k), theme.ACCENT, anchor="center", tracking=5.0,
                        glow=theme.ACCENT, glow_alpha=int(120 * k), alpha=int(255 * min(1.0, k * 2)))
 
@@ -690,7 +704,7 @@ class PlayScene(Scene):
             won = self.death_cause == "complete"
             text = "RUN COMPLETE" if won else ("TIME UP" if self.death_cause == "time" else "CRASHED")
             col = theme.ACCENT_2 if won else (theme.GOLD if self.death_cause == "time" else theme.DANGER)
-            fonts.draw(surf, text, (GAME_W // 2, ARENA_RECT.centery),
+            fonts.draw(surf, text, (GAME_W // 2, arena_rect().centery),
                        int(52 * (0.6 + 0.4 * ease_out_back(k, 2.4))), col,
                        anchor="center", tracking=7.0, glow=col, glow_alpha=int(140 * k),
                        alpha=int(255 * min(1.0, k * 2.4)))

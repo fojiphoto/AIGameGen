@@ -93,7 +93,7 @@ def _isolate(scene, *, x=None, y=None, heading=0.0):
     timer and advanced the level, and the failures that produced were all in the harness rather
     than in the game.
     """
-    from .scenes.play import ARENA_RECT
+    from .scenes.play import arena_rect
     # Revive as well as reposition. Once a sub-test has killed the snake the scene stops
     # simulating, and every later assertion silently measures a dead game — which is how one
     # real failure turned into five imaginary ones.
@@ -107,8 +107,8 @@ def _isolate(scene, *, x=None, y=None, heading=0.0):
     scene.powers.items.clear()
     # respawn(), not a raw position write: the path has to be rebuilt behind the head or the
     # snake is left pointing down its own body.
-    scene.snake.respawn(ARENA_RECT.centerx if x is None else x,
-                        ARENA_RECT.centery if y is None else y, heading)
+    scene.snake.respawn(arena_rect().centerx if x is None else x,
+                        arena_rect().centery if y is None else y, heading)
     scene.score = 0
     scene.food_total = 0
     scene.food_toward_level = 0
@@ -265,7 +265,7 @@ def _test_gameplay(app, tmp):
     section("Gameplay")
     from . import theme
     from .config import FOOD_PER_LEVEL
-    from .scenes.play import ARENA_RECT, PlayScene
+    from .scenes.play import PlayScene, arena_rect
 
     scene = PlayScene(app)
     scene.enter(mode_key="classic")
@@ -347,7 +347,7 @@ def _test_gameplay(app, tmp):
         not ob.rect.inflate(60, 60).collidepoint(scene.snake.x, scene.snake.y)
         for ob in scene.obstacles.items)
     check(clear_of_snake, "no obstacle spawns on the snake")
-    inside = all(ARENA_RECT.contains(ob.rect) for ob in scene.obstacles.items)
+    inside = all(arena_rect().contains(ob.rect) for ob in scene.obstacles.items)
     check(inside, "every obstacle is inside the arena")
 
 
@@ -407,13 +407,13 @@ def _test_powers(app, tmp):
 
 def _test_deaths(app, tmp):
     section("Death conditions")
-    from .scenes.play import ARENA_RECT, PlayScene
+    from .scenes.play import PlayScene, arena_rect
 
     # Wall.
     scene = PlayScene(app)
     scene.enter(mode_key="classic")
     _step(app, scene, 1.3)
-    _isolate(scene, x=ARENA_RECT.right - 40, y=ARENA_RECT.centery, heading=0.0)
+    _isolate(scene, x=arena_rect().right - 40, y=arena_rect().centery, heading=0.0)
     scene.snake.invuln = 0.0
     _step(app, scene, 1.0)
     check(scene.state in ("dying", "dead"), "hitting a wall ends the run", scene.death_cause)
@@ -437,7 +437,7 @@ def _test_deaths(app, tmp):
     scene3 = PlayScene(app)
     scene3.enter(mode_key="classic")
     _step(app, scene3, 1.3)
-    _isolate(scene3, x=ARENA_RECT.right - 40, y=ARENA_RECT.centery, heading=0.0)
+    _isolate(scene3, x=arena_rect().right - 40, y=arena_rect().centery, heading=0.0)
     scene3.active.activate("shield")
     scene3.snake.invuln = 0.0
     _step(app, scene3, 0.8)
@@ -843,7 +843,7 @@ def _test_resize(app):
 
 def _test_long_run(app, tmp):
     section("Endurance")
-    from .scenes.play import ARENA_RECT, PlayScene
+    from .scenes.play import PlayScene, arena_rect
 
     scene = PlayScene(app)
     scene.enter(mode_key="classic")
@@ -871,6 +871,68 @@ def _test_long_run(app, tmp):
           f"{len(scene.floaters.items)} live")
     check(len(scene.field.items) <= 12, "pickups do not accumulate",
           f"{len(scene.field.items)} on field")
+
+
+def _test_import_safety():
+    """No module may CALL pygame while it is being imported.
+
+    This is the rule that the browser build breaks on and a desktop run never will. pygbag's
+    pygame is a lazy package: the module object exists long before all of its members do, so a
+    module-scope `pygame.Rect(...)` raises `module 'pygame' has no attribute 'Rect'` during import.
+    On a desktop the same line works without even calling `pygame.init()`, which is exactly why it
+    shipped — `scenes/play.py` built the arena rect at import time, the browser died before the
+    first line of the game ran, and the page showed "Loading, please wait" with the real traceback
+    buried in a terminal element.
+
+    Checked with the syntax tree rather than by importing, because importing it here would prove
+    nothing: on this machine it succeeds either way. Annotations are excluded — the package uses
+    `from __future__ import annotations`, so they are strings and never evaluated.
+    """
+    import ast
+    from pathlib import Path as _P
+
+    section("Import safety")
+
+    class _Scan(ast.NodeVisitor):
+        def __init__(self):
+            self.hits = []
+
+        # Function bodies run later, so they are allowed anything.
+        def visit_FunctionDef(self, node):
+            pass
+
+        def visit_AsyncFunctionDef(self, node):
+            pass
+
+        def visit_ClassDef(self, node):
+            for child in node.body:
+                self.visit(child)
+
+        # Only CALLS matter. A bare reference or an annotation is harmless.
+        def visit_Call(self, node):
+            f = node.func
+            if isinstance(f, ast.Attribute):
+                root = f
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if isinstance(root, ast.Name) and root.id == "pygame":
+                    self.hits.append((node.lineno, ast.unparse(f)))
+            self.generic_visit(node)
+
+    root = _P(__file__).resolve().parent
+    offenders = []
+    scanned = 0
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        scanned += 1
+        scan = _Scan()
+        for node in tree.body:
+            scan.visit(node)
+        for line, name in scan.hits:
+            offenders.append(f"{path.relative_to(root).as_posix()}:{line} calls {name}()")
+
+    check(not offenders, "nothing calls pygame at import time",
+          f"{scanned} modules scanned" if not offenders else "; ".join(offenders))
 
 
 def _test_web_paths(tmp: Path):
@@ -993,6 +1055,7 @@ def run_selftest() -> int:
         _test_audio()
         _test_snake()
         _test_save(tmp)
+        _test_import_safety()
         _test_web_paths(tmp)
         _test_navigation(tmp)
 
