@@ -161,6 +161,37 @@ for (const x of NATIVE_EXTRAS) {
   }
   const dest = join(OUT, 'play', x.slug);
   await cp(x.from, dest, { recursive: true });
+
+  /**
+   * An embed page, so a hand-built game can be dropped into another site the same way the
+   * generated ones are.
+   *
+   * A wrapper around an iframe rather than a copy of the game's own page: the WebAssembly
+   * loader resolves its archive relatively, so a duplicated page two directories away would
+   * ask for files that are not there. One level of nesting is the cheap, correct answer.
+   *
+   * `allow` matters. The runtime wants autoplay for its audio context and fullscreen for the
+   * button in its own chrome, and an iframe without them gets a game with no sound.
+   */
+  await writeFile(join(OUT, 'embed', `${x.slug}.html`), `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${esc(x.title)}</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;background:${x.palette.bg};overflow:hidden}
+  iframe{display:block;width:100%;height:100%;border:0}
+</style>
+</head>
+<body>
+<iframe src="../play/${x.slug}/" title="${esc(x.title)}"
+        allow="autoplay; fullscreen; gamepad; cross-origin-isolated"
+        allowfullscreen></iframe>
+</body>
+</html>
+`, 'utf8');
+
   extras.push(x);
   console.log(`  [32mok[0m   ${x.label.padEnd(16)} ${x.title.padEnd(16)} play/${x.slug}/`);
 }
@@ -183,6 +214,7 @@ const extraCards = extras
           <p class="stats">${esc(g.stats)}</p>
           <p class="stats" style="color:var(--gold);opacity:.9">${esc(g.note)}</p>
           <a class="btn" href="play/${g.slug}/">PLAY NOW</a>
+          <a class="btn ghost" href="embed/${g.slug}.html">EMBED</a>
         </div>
       </article>`
   )
@@ -247,6 +279,8 @@ const index = `<!doctype html>
   .stats{font-size:11px;color:var(--muted);opacity:.75;margin-bottom:13px}
   .btn{display:inline-block;font-weight:600;font-size:13px;padding:11px 22px;border-radius:999px;background:var(--gold);color:#24160a;text-decoration:none}
   .btn:hover{transform:translateY(-1px)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);margin-left:8px}
+  .btn.ghost:hover{color:var(--text);border-color:rgba(255,255,255,.22)}
   .note{margin-top:18px;padding:16px 18px;border-radius:var(--r);background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:13.5px;color:var(--muted)}
   code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:5px;color:var(--leaf2)}
   pre{margin-top:10px;padding:14px;border-radius:14px;background:rgba(0,0,0,.4);overflow-x:auto;font-size:12px;color:var(--text)}
@@ -271,10 +305,17 @@ const index = `<!doctype html>
   </div>
 
   <div class="note">
-    <b>Embedding these on another page.</b> Each game has a frameless version made for iframes:
+    <b>Embedding these on another page.</b> Every game here has a frameless version made for
+    iframes, so it plays inside your own page instead of navigating away from it:
     <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/${published[0].slug}.html"
         style="width:100%;aspect-ratio:900/506;border:0;border-radius:14px"
         title="${esc(published[0].title)}"&gt;&lt;/iframe&gt;</pre>
+${extras.length ? `    The WebAssembly one wants a 16:9 box and the two <code>allow</code> permissions,
+    without which it loads but stays silent:
+    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/${extras[0].slug}.html"
+        style="width:100%;aspect-ratio:16/9;border:0;border-radius:14px"
+        allow="autoplay; fullscreen" allowfullscreen
+        title="${esc(extras[0].title)}"&gt;&lt;/iframe&gt;</pre>` : ''}
   </div>
 
   <div class="note">
