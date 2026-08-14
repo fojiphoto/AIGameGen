@@ -66,6 +66,22 @@ const NATIVE_EXTRAS = [
     // The runtime is fetched from the pygbag CDN on first load and then cached by the browser.
     note: 'First load downloads a ~20 MB Python runtime, then it is cached. Click the page to start.',
     palette: { bg: '#09081a', bgAccent: '#131130', ground: '#2a1155', player: '#00e8ff', obstacle: '#ff3ea5', accent: '#ffca40' },
+    aspect: '16/9',
+  },
+  {
+    slug: 'block-bloom',
+    title: 'BLOCK BLOOM',
+    label: 'Hand-built',
+    family: 'block puzzle',
+    from: join(ROOT, 'BlockBloom', 'build', 'web'),
+    blurb: 'Drag blocks onto an 8x8 board and fill rows to clear them. Smart piece dealing that '
+         + 'never hands you a dead board, escalating combos, ten objectives and five themes.',
+    stats: 'Python + pygame, compiled to WebAssembly · zero asset files · 239 automated checks',
+    note: 'First load downloads a ~20 MB Python runtime, then it is cached. Click the page to start.',
+    palette: { bg: '#121628', bgAccent: '#1e2546', ground: '#2f3a68', player: '#5aaaff', obstacle: '#ff74a8', accent: '#ffce56' },
+    // Portrait, so the embed snippet has to say so — a 9:16 game in a 16:9 box is a tall sliver
+    // between two black bars.
+    aspect: '9/16',
   },
 ];
 
@@ -156,7 +172,7 @@ for (const x of NATIVE_EXTRAS) {
     // Not built. Skip it with a loud note rather than emitting a card that 404s — a dead link
     // on the arcade page is worse than a missing one.
     console.log(`  [33mskip[0m ${x.title.padEnd(16)} no web build at ${x.from}`);
-    console.log(`       build it with:  cd NeonCoil && python -m pygbag --build .`);
+    console.log(`       build it with:  npm run publish:${x.slug.replace(/-/g, '')}`);
     continue;
   }
   const dest = join(OUT, 'play', x.slug);
@@ -310,12 +326,12 @@ const index = `<!doctype html>
     <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/${published[0].slug}.html"
         style="width:100%;aspect-ratio:900/506;border:0;border-radius:14px"
         title="${esc(published[0].title)}"&gt;&lt;/iframe&gt;</pre>
-${extras.length ? `    The WebAssembly one wants a 16:9 box and the two <code>allow</code> permissions,
-    without which it loads but stays silent:
-    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/${extras[0].slug}.html"
-        style="width:100%;aspect-ratio:16/9;border:0;border-radius:14px"
+${extras.length ? `    The WebAssembly ones need the two <code>allow</code> permissions, without which they load
+    but stay silent, and each wants a box of its own shape:
+${extras.map((x) => `    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/${x.slug}.html"
+        style="width:100%;aspect-ratio:${x.aspect || '16/9'};border:0;border-radius:14px"
         allow="autoplay; fullscreen" allowfullscreen
-        title="${esc(extras[0].title)}"&gt;&lt;/iframe&gt;</pre>` : ''}
+        title="${esc(x.title)}"&gt;&lt;/iframe&gt;</pre>`).join('\n')}` : ''}
   </div>
 
   <div class="note">

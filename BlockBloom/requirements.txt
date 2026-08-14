@@ -1,0 +1,10 @@
+# The only hard requirement. Everything the game draws and every sound it plays is generated at
+# runtime, so there are no asset packages here and never will be.
+pygame-ce>=2.5.0
+
+# Optional, and genuinely optional: numpy is the fast path for anything defined per pixel — glows,
+# the background wash, the vignette, the sound bank. Every one of those has a pygame-only fallback,
+# because the WebAssembly build ships without numpy (pygbag's wheel is built for a CPython version
+# its runtime no longer uses). Install it for a faster first launch on the desktop; leave it out and
+# the game is identical apart from a little banding in the glows.
+numpy>=1.24 ; python_version < "4"

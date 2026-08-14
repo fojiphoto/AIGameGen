@@ -56,7 +56,7 @@
     included here because it shows what the same art-from-code approach looks like without a
     generator in front of it.
   </p>
-  <p><span class="pill live">7 TEMPLATES</span> <span class="pill live">1 HAND-BUILT</span> <span class="pill">EVERY LEVEL VERIFIED FINISHABLE</span> <span class="pill">NO PLUGINS</span></p>
+  <p><span class="pill live">7 TEMPLATES</span> <span class="pill live">2 HAND-BUILT</span> <span class="pill">EVERY LEVEL VERIFIED FINISHABLE</span> <span class="pill">NO PLUGINS</span></p>
 
   <h2>PLAY</h2>
   <div class="grid">
@@ -74,6 +74,22 @@
           <p class="stats" style="color:var(--gold);opacity:.9">First load downloads a ~20 MB Python runtime, then it is cached. Click the page to start.</p>
           <a class="btn" href="play/neon-coil/">PLAY NOW</a>
           <a class="btn ghost" href="embed/neon-coil.html">EMBED</a>
+        </div>
+      </article>
+      <article class="card">
+        <a class="thumb" href="play/block-bloom/"
+           style="background:linear-gradient(150deg,#1e2546,#121628)">
+          <span class="sw"><i style="background:#2f3a68"></i><i style="background:#5aaaff"></i><i style="background:#ff74a8"></i><i style="background:#ffce56"></i></span>
+          <span class="playnow">PLAY</span>
+        </a>
+        <div class="body">
+          <h3>BLOCK BLOOM</h3>
+          <p class="fam">Hand-built · block puzzle</p>
+          <p class="blurb">Drag blocks onto an 8x8 board and fill rows to clear them. Smart piece dealing that never hands you a dead board, escalating combos, ten objectives and five themes.</p>
+          <p class="stats">Python + pygame, compiled to WebAssembly · zero asset files · 239 automated checks</p>
+          <p class="stats" style="color:var(--gold);opacity:.9">First load downloads a ~20 MB Python runtime, then it is cached. Click the page to start.</p>
+          <a class="btn" href="play/block-bloom/">PLAY NOW</a>
+          <a class="btn ghost" href="embed/block-bloom.html">EMBED</a>
         </div>
       </article>
       <article class="card">
@@ -182,12 +198,16 @@
     <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/rhythm-dash-glitch-circuit.html"
         style="width:100%;aspect-ratio:900/506;border:0;border-radius:14px"
         title="GLITCH CIRCUIT"&gt;&lt;/iframe&gt;</pre>
-    The WebAssembly one wants a 16:9 box and the two <code>allow</code> permissions,
-    without which it loads but stays silent:
+    The WebAssembly ones need the two <code>allow</code> permissions, without which they load
+    but stay silent, and each wants a box of its own shape:
     <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/neon-coil.html"
         style="width:100%;aspect-ratio:16/9;border:0;border-radius:14px"
         allow="autoplay; fullscreen" allowfullscreen
         title="NEON COIL"&gt;&lt;/iframe&gt;</pre>
+    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGameGen/embed/block-bloom.html"
+        style="width:100%;aspect-ratio:9/16;border:0;border-radius:14px"
+        allow="autoplay; fullscreen" allowfullscreen
+        title="BLOCK BLOOM"&gt;&lt;/iframe&gt;</pre>
   </div>
 
   <div class="note">
