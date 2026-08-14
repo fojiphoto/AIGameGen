@@ -226,23 +226,41 @@ class App:
                 self.scene.handle(event)
 
     def _advance_transition(self, dt: float):
+        """Close the wipe, swap the scene, open the wipe.
+
+        Written as two plainly separate directions after the first version never finished. It
+        advanced the clock once at the top and then, on the way out, subtracted twice as much
+        further down — so on the opening half the value went up by a step before going down by
+        two, and the "are we done" test was evaluated in between. Sitting at zero, the test saw
+        one step ABOVE zero every single frame and never fired. `_transition_dir` stayed at -1
+        forever.
+
+        That mattered far more than a stuck animation, because `_pump` refuses to deliver input
+        during a transition — deliberately, so a click meant for one screen cannot land on the
+        next. With the direction stuck, nothing was ever delivered again: the mouse position and
+        the press states kept updating, so buttons still lit up and depressed under the cursor,
+        and not one of them did anything. The first navigation worked and the game was inert
+        from then on.
+        """
         if self._transition_dir == 0:
             return
-        self._transition += dt / (TRANSITION_TIME * 0.5)
-        if self._transition_dir == 1 and self._transition >= 1.0:
-            scene, kwargs = self._pending or (None, {})
-            self._pending = None
-            if scene is not None:
-                self.switch_now(scene, **kwargs)
-            self._transition = 1.0
-            self._transition_dir = -1
-        elif self._transition_dir == -1 and self._transition <= 0.0:
-            self._transition = 0.0
-            self._transition_dir = 0
+        step = dt / (TRANSITION_TIME * 0.5)
 
-        if self._transition_dir == -1:
-            self._transition -= dt / (TRANSITION_TIME * 0.5) * 2.0
-            self._transition = max(0.0, self._transition)
+        if self._transition_dir == 1:
+            self._transition += step
+            if self._transition >= 1.0:
+                # Fully covered: swap underneath the wipe, then open it again.
+                scene, kwargs = self._pending or (None, {})
+                self._pending = None
+                if scene is not None:
+                    self.switch_now(scene, **kwargs)
+                self._transition = 1.0
+                self._transition_dir = -1
+        else:
+            self._transition -= step
+            if self._transition <= 0.0:
+                self._transition = 0.0
+                self._transition_dir = 0
 
     def _draw_transition(self, surf: pygame.Surface):
         if self._transition <= 0.001:
