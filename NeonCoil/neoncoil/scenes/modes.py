@@ -53,11 +53,9 @@ class ModesScene(ChromeScene):
 
         for i, (tab, m) in enumerate(self.cards):
             off, alpha = ui.appear_offset(self.t, 0.10 + i * 0.07, 40)
-            layer = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
-            r = tab.draw_frame(layer)
-            self._draw_card_body(layer, r, m)
-            layer.set_alpha(alpha)
-            surf.blit(layer, (0, int(off)))
+            with ui.sliding(surf, ui.reach(tab.rect), dy=off, alpha=alpha) as layer:
+                r = tab.draw_frame(layer)
+                self._draw_card_body(layer, r, m)
 
         # The back button is a normal widget and does not need the entrance treatment.
         self.group.widgets[-1].draw(surf)

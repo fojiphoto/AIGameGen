@@ -287,7 +287,13 @@ class App:
         blocking loop would freeze the page. Nothing about a frame depends on which driver is
         calling it.
         """
-        raw = self.clock.tick(TARGET_FPS) / 1000.0
+        # The browser paces frames itself: the loop is resumed from requestAnimationFrame, which
+        # already fires at the display's refresh rate. Asking Clock to enforce a cap on top of
+        # that is worse than redundant — the cap is enforced by sleeping, and a single-threaded
+        # WebAssembly build cannot sleep without blocking the very event loop that has to present
+        # the canvas. On a 120 or 144 Hz display it would block for ~10 ms of every frame to hold
+        # a rate the page was never exceeding. So on the web, Clock only measures.
+        raw = (self.clock.tick() if self.on_web else self.clock.tick(TARGET_FPS)) / 1000.0
         dt = min(raw, MAX_FRAME_DT)
         self.fps = self.clock.get_fps()
 
@@ -372,14 +378,29 @@ class App:
         """Scale the virtual surface into the window."""
         if self.view.size == (GAME_W, GAME_H):
             self.window.blit(self.screen, self.view.topleft)
+        elif self.view_scale >= 1.0:
+            # Plain scale for any upscale. This used to be smoothscale at non-integer ratios, on
+            # the grounds that it avoids shimmer on scrolling hairlines, and it does — but it is
+            # the single most expensive thing in the frame at the resolution most players use.
+            # Measured, 1280x720 to the window:
+            #
+            #     1600x900   smoothscale 3.53 ms   scale 0.87 ms
+            #     1920x1080  smoothscale 4.41 ms   scale 1.20 ms
+            #     2560x1440  smoothscale 6.53 ms   scale 2.20 ms
+            #     3840x2160  smoothscale 11.23 ms  scale 4.82 ms
+            #
+            # 4.41 ms is a quarter of a 60 fps frame spent presenting one already-finished image,
+            # and at 4K smoothscale alone very nearly exhausts the budget. What it buys is a
+            # softer picture: the shimmer it prevents is on the backdrop grid, which is drawn at
+            # alpha 15-26 out of 255, while the blur it adds is on every glow and every letter.
+            # Sharper and four times cheaper is the better trade in both directions.
+            pygame.transform.scale(self.screen, self.view.size, self.window.subsurface(self.view))
         else:
-            # smoothscale on a non-integer scale, plain scale when doubling exactly: the former
-            # avoids shimmer, the latter avoids blurring crisp art for no reason.
-            if abs(self.view_scale - round(self.view_scale)) < 0.001 and self.view_scale >= 1.0:
-                pygame.transform.scale(self.screen, self.view.size, self.window.subsurface(self.view))
-            else:
-                pygame.transform.smoothscale(self.screen, self.view.size,
-                                             self.window.subsurface(self.view))
+            # Downscaling is different: nearest-neighbour drops whole rows and columns, so thin
+            # geometry disappears rather than softening. Windows smaller than 1280x720 are also
+            # cheap to resample, so the quality is worth having here.
+            pygame.transform.smoothscale(self.screen, self.view.size,
+                                         self.window.subsurface(self.view))
         if self.view.size != self.window.get_size():
             # Letterbox bars. Filled every frame because a mode change can leave artefacts.
             ww, wh = self.window.get_size()

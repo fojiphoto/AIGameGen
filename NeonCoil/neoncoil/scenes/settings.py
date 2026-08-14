@@ -130,10 +130,7 @@ class SettingsScene(ChromeScene):
             if abs(off) < 0.4 and alpha >= 255:
                 w.draw(surf)
                 continue
-            layer = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
-            w.draw(layer)
-            layer.set_alpha(alpha)
-            surf.blit(layer, (0, int(off)))
+            ui.slide_in(surf, w.rect, w.draw, dy=off, alpha=alpha)
 
     def footer_hint(self):
         return "ENTER  TOGGLE      LEFT / RIGHT  ADJUST      ESC  BACK"

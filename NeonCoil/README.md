@@ -133,7 +133,7 @@ neoncoil/
 The game can run without a display or a sound card, which is how it is actually verified:
 
 ```bash
-python -m neoncoil --selftest        # 142 assertions, exits non-zero on failure
+python -m neoncoil --selftest        # 156 assertions, exits non-zero on failure
 python -m neoncoil --shots out/      # a PNG of every screen, for visual review
 python -m neoncoil --mode classic    # skip the menus
 python -m neoncoil --headless        # dummy video and audio drivers
@@ -143,7 +143,8 @@ The self test covers steering and body spacing, all three death conditions and t
 fires early, scoring and combo and growth, every power-up applying and expiring, the shield
 absorbing exactly one hit, level and obstacle scheduling, every screen building and navigating,
 pause genuinely freezing the simulation, the save surviving a corrupt file, letterboxing at five
-window sizes, and a frame-time budget measured as a median across batches. It also covers the
+window sizes, and a frame-time budget for gameplay *and* for each menu screen, measured as the
+minimum across batches. It also covers the
 browser-only code — the localStorage-backed save against a stub, storage that refuses, storage that
 is absent, the async frame driver, and the contents of the packed WebAssembly archive.
 
@@ -166,13 +167,21 @@ yourself.
 wash, the vignette, the sound bank — and every one of those has a pygame-only fallback that draws
 the same ramp as nested shapes. That is not insurance, it is the browser build: pygbag publishes a
 numpy wheel built against CPython 3.11 while its runtime is 3.12, so asking for it 404s and kills
-the page before the game loads. Both paths are tested — 142 checks pass with numpy hidden from the
+the page before the game loads. Both paths are tested — 156 checks pass with numpy hidden from the
 import system, and the rendered screens differ by about 3%.
 
 **Additive sprites carry their brightness in RGB.** pygame's additive blend ignores alpha, both
 per-surface and per-pixel. Every glow in the game is premultiplied and generated at the brightness
 it will be drawn at; fading one means regenerating it dimmer, quantised so a fading particle reuses
 a small ramp of cached sprites.
+
+**Widget layers are pooled, and the interface was the slow part.** A widget that slides and fades
+has to be composed on its own layer, because fading a panel, its glow and its text separately makes
+the overlaps show. Each screen used to allocate a fresh full-screen surface per widget per frame and
+blit all of it back — 1.6 ms per widget, of a 16.7 ms frame. The skins screen draws eight tiles, so
+it ran at 18.7 ms per frame while *gameplay* ran at 5.0. Reusing one layer and touching only the
+region a widget can reach costs 0.09 ms; skins now draws in 6.4. The frame-time check used to cover
+gameplay only, which is precisely why nobody noticed that the menus were the expensive part.
 
 **The simulation runs on a fixed timestep.** Rendering runs as fast as the display allows; the
 simulation advances in 1/120 slices from an accumulator. At full speed a single dropped frame under

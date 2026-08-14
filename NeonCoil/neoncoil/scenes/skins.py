@@ -79,11 +79,9 @@ class SkinsScene(ChromeScene):
 
         for i, (tab, sk, unlocked) in enumerate(self.tiles):
             off, alpha = ui.appear_offset(self.t, 0.08 + i * 0.035, 30)
-            layer = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
-            r = tab.draw_frame(layer)
-            self._draw_tile(layer, r, sk, unlocked, best)
-            layer.set_alpha(alpha)
-            surf.blit(layer, (0, int(off)))
+            with ui.sliding(surf, ui.reach(tab.rect), dy=off, alpha=alpha) as layer:
+                r = tab.draw_frame(layer)
+                self._draw_tile(layer, r, sk, unlocked, best)
 
         self.group.widgets[-1].draw(surf)
         self._draw_selection_bar(surf)

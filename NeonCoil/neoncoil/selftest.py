@@ -50,12 +50,13 @@ def _fresh_app(tmp_save: Path):
     handles that raise "font module quit since font created" the next time they are drawn. Doing
     this here rather than at each call site is what makes the suite safe to reorder.
     """
-    from . import assets, fonts
+    from . import assets, fonts, ui
     from .app import App
     from .save import SaveData
 
     assets.clear_cache()
     fonts.clear_cache()
+    ui.drop_layers()
     app = App(headless=True)
     app.save = SaveData(tmp_save)
     app.save.data["settings"]["music"] = False
@@ -813,6 +814,79 @@ def _test_performance(app, tmp):
 
     check(scene.particles.live <= 900, "the particle pool respects its ceiling",
           f"{scene.particles.live} live")
+
+    _test_menu_performance(app, surf)
+
+
+def _test_menu_performance(app, surf):
+    """The menus, which is where this check was missing and where the cost actually was.
+
+    Only gameplay was ever measured, so nobody noticed that the interface was the expensive part:
+    the skins screen ran at 18.7 ms per frame against gameplay's 5.0, because every screen
+    allocated a full-screen surface per widget per frame and blitted all of it back. The first
+    thing a player touches was the slowest thing in the game.
+
+    Two checks, because a timing threshold alone is a blunt instrument on a loaded machine. The
+    second one is exact: composing a frame must not allocate full-screen surfaces at all.
+    """
+    from .scenes.menu import MenuScene
+    from .scenes.modes import ModesScene
+    from .scenes.settings import SettingsScene
+    from .scenes.skins import SkinsScene
+
+    def best_ms(scene, t, n=12, batches=4):
+        scene.t = t
+        out = []
+        for _ in range(batches):
+            t0 = time.perf_counter()
+            for _ in range(n):
+                scene.draw(surf)
+            out.append((time.perf_counter() - t0) / n * 1000.0)
+        return min(out)
+
+    worst = 0.0
+    worst_name = ""
+    scenes = []
+    for name, cls in (("menu", MenuScene), ("modes", ModesScene),
+                      ("skins", SkinsScene), ("settings", SettingsScene)):
+        scene = cls(app)
+        scene.enter()
+        for _ in range(40):            # warm the sprite caches and the layer pool
+            scene.update(1 / 120)
+            scene.draw(surf)
+        scenes.append((name, scene))
+        # Both phases: mid-entrance, when every widget is being composed on a layer, and settled.
+        ms = max(best_ms(scene, 0.15), best_ms(scene, 3.0))
+        if ms > worst:
+            worst, worst_name = ms, name
+
+    check(worst < 16.6, "the menus fit inside the 60fps budget too",
+          f"worst is {worst_name} at {worst:.2f}ms ({1000 / worst:.0f} fps equivalent)")
+
+    # Now the structural half. Widget layers are pooled, so a warmed-up screen should allocate
+    # nothing full-screen while drawing. Counting is possible because every allocation in this
+    # project goes through the module attribute rather than a bound local.
+    real_surface = pygame.Surface
+    big = []
+
+    class _Counting(real_surface):
+        def __init__(self, size, *args, **kwargs):
+            if size[0] >= 1280 and size[1] >= 720:
+                big.append(tuple(size))
+            super().__init__(size, *args, **kwargs)
+
+    pygame.Surface = _Counting
+    try:
+        for _, scene in scenes:
+            scene.t = 0.15
+            scene.draw(surf)
+            scene.t = 3.0
+            scene.draw(surf)
+    finally:
+        pygame.Surface = real_surface
+
+    check(not big, "drawing a menu frame allocates no full-screen surfaces",
+          f"{len(big)} allocated" if big else "none, across all four screens")
 
 
 def _test_resize(app):

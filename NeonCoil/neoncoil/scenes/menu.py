@@ -109,10 +109,7 @@ class MenuScene(ChromeScene):
             if abs(off) < 0.4 and a >= 255:
                 w.draw(surf)
                 continue
-            layer = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
-            w.draw(layer)
-            layer.set_alpha(a)
-            surf.blit(layer, (0, int(off)))
+            ui.slide_in(surf, w.rect, w.draw, dy=off, alpha=a)
 
     def _draw_records(self, surf):
         save = self.app.save
@@ -138,49 +135,49 @@ class MenuScene(ChromeScene):
         )
         panel_rect = pygame.Rect(GAME_W - 430, 290, 334, content_h + PAD * 2)
 
-        layer = pygame.Surface((GAME_W, GAME_H), pygame.SRCALPHA)
-        ui.panel(layer, panel_rect, radius=20, accent=theme.PANEL_LINE)
+        # The panel is composed on a scratch layer so the whole card slides and fades as one
+        # image. Only the card's own area is touched; 80px of margin covers the text glows.
+        with ui.sliding(surf, panel_rect.inflate(80, 80), dy=dy, alpha=alpha) as layer:
+            ui.panel(layer, panel_rect, radius=20, accent=theme.PANEL_LINE)
 
-        y = panel_rect.y + PAD
-        ui.section_label(layer, "YOUR RECORD", (panel_rect.x + PAD, y + 6))
-        y += 22
+            y = panel_rect.y + PAD
+            ui.section_label(layer, "YOUR RECORD", (panel_rect.x + PAD, y + 6))
+            y += 22
 
-        for m in theme.MODES:
-            best = save.high_score(m.key)
-            fonts.draw(layer, m.name, (panel_rect.x + PAD, y + ROW_H // 2), 17, theme.TEXT_DIM,
-                       anchor="midleft", bold=False, tracking=1.4)
-            fonts.draw(layer, f"{best:,}", (panel_rect.right - PAD, y + ROW_H // 2), 22, m.color,
-                       anchor="midright", tracking=0.8,
-                       glow=m.color if best else None, glow_alpha=40)
-            y += ROW_H
+            for m in theme.MODES:
+                best = save.high_score(m.key)
+                fonts.draw(layer, m.name, (panel_rect.x + PAD, y + ROW_H // 2), 17, theme.TEXT_DIM,
+                           anchor="midleft", bold=False, tracking=1.4)
+                fonts.draw(layer, f"{best:,}", (panel_rect.right - PAD, y + ROW_H // 2), 22, m.color,
+                           anchor="midright", tracking=0.8,
+                           glow=m.color if best else None, glow_alpha=40)
+                y += ROW_H
 
-        line = pygame.Surface((inner_w, 1), pygame.SRCALPHA)
-        line.fill((*theme.PANEL_LINE, 170))
-        layer.blit(line, (panel_rect.x + PAD, y + 8))
-        y += 18
+            line = pygame.Surface((inner_w, 1), pygame.SRCALPHA)
+            line.fill((*theme.PANEL_LINE, 170))
+            layer.blit(line, (panel_rect.x + PAD, y + 8))
+            y += 18
 
-        tw = (inner_w - TILE_GAP) // 2
-        tiles = (
-            ("LONGEST", save.data.get("best_length", 0), theme.GREEN),
-            ("BEST COMBO", f"x{save.data.get('best_combo', 0)}", theme.ACCENT_2),
-            ("RUNS", save.data.get("games_played", 0), theme.TEXT_DIM),
-            ("ORBS", save.data.get("total_food", 0), theme.PICKUPS["food"].color),
-        )
-        for i, (label, value, color) in enumerate(tiles):
-            tx = panel_rect.x + PAD + (i % 2) * (tw + TILE_GAP)
-            ty = y + (i // 2) * (TILE_H + TILE_GAP)
-            stat_tile(layer, (tx, ty, tw, TILE_H), label, value, color)
-        y += TILE_H * 2 + TILE_GAP + 16
+            tw = (inner_w - TILE_GAP) // 2
+            tiles = (
+                ("LONGEST", save.data.get("best_length", 0), theme.GREEN),
+                ("BEST COMBO", f"x{save.data.get('best_combo', 0)}", theme.ACCENT_2),
+                ("RUNS", save.data.get("games_played", 0), theme.TEXT_DIM),
+                ("ORBS", save.data.get("total_food", 0), theme.PICKUPS["food"].color),
+            )
+            for i, (label, value, color) in enumerate(tiles):
+                tx = panel_rect.x + PAD + (i % 2) * (tw + TILE_GAP)
+                ty = y + (i // 2) * (TILE_H + TILE_GAP)
+                stat_tile(layer, (tx, ty, tw, TILE_H), label, value, color)
+            y += TILE_H * 2 + TILE_GAP + 16
 
-        unlocked = len(save.data.get("unlocked_skins", []))
-        total = len(theme.SKINS)
-        fonts.draw(layer, f"{unlocked} / {total} SKINS", (panel_rect.x + PAD, y), 12,
-                   theme.TEXT_FAINT, anchor="topleft", tracking=2.0, shadow=1)
-        ui.progress_bar(layer, pygame.Rect(panel_rect.x + PAD, y + 18, inner_w, 8),
-                        unlocked / total, theme.GOLD)
+            unlocked = len(save.data.get("unlocked_skins", []))
+            total = len(theme.SKINS)
+            fonts.draw(layer, f"{unlocked} / {total} SKINS", (panel_rect.x + PAD, y), 12,
+                       theme.TEXT_FAINT, anchor="topleft", tracking=2.0, shadow=1)
+            ui.progress_bar(layer, pygame.Rect(panel_rect.x + PAD, y + 18, inner_w, 8),
+                            unlocked / total, theme.GOLD)
 
-        layer.set_alpha(alpha)
-        surf.blit(layer, (0, int(dy)))
 
     def footer_hint(self):
         return "ARROWS / WASD  MOVE      ENTER  SELECT      F11  FULLSCREEN      ESC  QUIT"
