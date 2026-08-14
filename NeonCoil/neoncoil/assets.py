@@ -11,10 +11,19 @@ Three techniques do most of the work:
   all), and hard-edged circles are the thing that makes procedural art look procedural. So
   shapes are drawn at `SS` times the final size and `smoothscale`d down, which gives clean
   edges everywhere for one extra allocation at generation time and nothing per frame.
-* **numpy for fields.** Anything defined per pixel rather than per shape — radial glows, the
-  background wash, the vignette — is built as an array and written straight into the surface.
-  A Python loop over a 1280x720 alpha channel takes the better part of a second; the array
-  form is milliseconds.
+* **numpy for fields, where it exists.** Anything defined per pixel rather than per shape —
+  radial glows, the background wash, the vignette — is built as an array and written straight
+  into the surface. A Python loop over a 1280x720 alpha channel takes the better part of a
+  second; the array form is milliseconds.
+
+  Every one of those has a pygame-only fallback, and it is not hypothetical insurance. The
+  WebAssembly build ships no numpy: pygbag lists a wheel for it but only publishes one built
+  against CPython 3.11, while its current runtime is 3.12, so the install 404s and the page dies
+  with an unhandled rejection before the game is ever reached. The fallbacks draw the same
+  fields as nested shapes instead — pygame's draw primitives WRITE colour rather than blending
+  it, so filling outside-in leaves each pixel showing the innermost shape that covered it,
+  which is exactly a radial ramp. Slightly banded, generated once, and it means the browser
+  build depends on nothing but pygame.
 * **Cache everything, key by intent.** Nothing here is called in a draw loop without a cache
   behind it. Colours are quantised before they reach a cache key so that a gradient sweeping
   through the body of the snake reuses a small ramp of sprites instead of allocating one per
@@ -25,8 +34,14 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pygame
+
+try:
+    import numpy as np
+    HAVE_NUMPY = True
+except ImportError:  # pragma: no cover - exercised only where no wheel exists
+    np = None
+    HAVE_NUMPY = False
 
 from . import theme
 from .theme import shade
@@ -67,7 +82,20 @@ def premultiply(surf: pygame.Surface) -> pygame.Surface:
     Needed for anything drawn with per-pixel alpha that will be blended additively — most
     importantly text, because SDL_ttf leaves the requested colour in the RGB channels of fully
     transparent pixels. Blitted additively that paints a solid rectangle the size of the text.
+
+    Returns an OPAQUE surface. Every caller blits the result additively, and additive blending
+    reads only RGB — so the alpha channel is not merely unnecessary here, dropping it is what
+    makes the no-numpy path a single blit: compositing onto opaque black gives
+    `src*a + 0*(1-a)`, which is the definition of premultiplied. Verified identical to the
+    array version channel for channel.
     """
+    if not HAVE_NUMPY:
+        out = pygame.Surface(surf.get_size())
+        out.fill((0, 0, 0))
+        out.blit(surf, (0, 0))
+        return out
+
+    surf = surf.copy()
     rgb = pygame.surfarray.pixels3d(surf)
     alpha = pygame.surfarray.pixels_alpha(surf)
     f = alpha.astype(np.float32) / 255.0
@@ -96,17 +124,34 @@ def glow(radius: int, color: tuple, falloff: float = 2.2, peak: int = 255) -> py
         return _cache[key]
 
     size = radius * 2
-    yy, xx = np.mgrid[0:size, 0:size]
-    d = np.sqrt((xx - radius + 0.5) ** 2 + (yy - radius + 0.5) ** 2) / radius
-    prof = (np.clip(1.0 - d, 0.0, 1.0) ** falloff * (peak / 255.0)).T
-
     surf = pygame.Surface((size, size), pygame.SRCALPHA)
-    rgb = pygame.surfarray.pixels3d(surf)
-    alpha = pygame.surfarray.pixels_alpha(surf)
-    for i in range(3):
-        rgb[:, :, i] = (prof * color[i]).astype(np.uint8)
-    alpha[:, :] = (prof * 255.0).astype(np.uint8)
-    del rgb, alpha
+
+    if HAVE_NUMPY:
+        yy, xx = np.mgrid[0:size, 0:size]
+        d = np.sqrt((xx - radius + 0.5) ** 2 + (yy - radius + 0.5) ** 2) / radius
+        prof = (np.clip(1.0 - d, 0.0, 1.0) ** falloff * (peak / 255.0)).T
+        rgb = pygame.surfarray.pixels3d(surf)
+        alpha = pygame.surfarray.pixels_alpha(surf)
+        for i in range(3):
+            rgb[:, :, i] = (prof * color[i]).astype(np.uint8)
+        alpha[:, :] = (prof * 255.0).astype(np.uint8)
+        del rgb, alpha
+    else:
+        # Nested circles, largest first. Draw writes rather than blends, so each pixel ends up
+        # showing the innermost circle that reached it — a radial ramp in O(steps) draw calls.
+        #
+        # The brightness of the circle of radius r is the profile AT r, which is
+        # `(1 - r/radius) ** falloff`: nearly nothing at the rim, full at the core. Getting that
+        # the wrong way round makes the largest circle the brightest, and every glow in the game
+        # comes out as a hard-edged disc — which is exactly what the first version did.
+        steps = max(8, min(radius, 64))
+        for i in range(steps):
+            t = (i + 1) / steps                # ->0 at the rim, 1 at the core
+            r = int(radius * (1.0 - t)) + 1
+            v = (t ** falloff) * (peak / 255.0)
+            pygame.draw.circle(surf, (int(color[0] * v), int(color[1] * v),
+                                      int(color[2] * v), int(v * 255)),
+                               (radius, radius), max(1, r))
 
     _cache[key] = surf
     return surf
@@ -118,12 +163,20 @@ def vertical_gradient(size, top: tuple, bottom: tuple) -> pygame.Surface:
     if key in _cache:
         return _cache[key]
 
-    t = np.linspace(0.0, 1.0, h, dtype=np.float32)[None, :]
     surf = pygame.Surface((w, h))
-    rgb = pygame.surfarray.pixels3d(surf)
-    for i in range(3):
-        rgb[:, :, i] = (top[i] + (bottom[i] - top[i]) * t).astype(np.uint8)
-    del rgb
+    if HAVE_NUMPY:
+        t = np.linspace(0.0, 1.0, h, dtype=np.float32)[None, :]
+        rgb = pygame.surfarray.pixels3d(surf)
+        for i in range(3):
+            rgb[:, :, i] = (top[i] + (bottom[i] - top[i]) * t).astype(np.uint8)
+        del rgb
+    else:
+        # One filled row per scanline. At 720 rows this is not worth optimising.
+        for y in range(h):
+            t = y / max(1, h - 1)
+            surf.fill((int(top[0] + (bottom[0] - top[0]) * t),
+                       int(top[1] + (bottom[1] - top[1]) * t),
+                       int(top[2] + (bottom[2] - top[2]) * t)), (0, y, w, 1))
 
     _cache[key] = surf
     return surf
@@ -136,18 +189,27 @@ def radial_wash(size, center, radius: float, color: tuple, peak: int = 90) -> py
     if key in _cache:
         return _cache[key]
 
-    yy, xx = np.mgrid[0:h, 0:w]
-    d = np.sqrt((xx - center[0]) ** 2 + (yy - center[1]) ** 2) / max(1.0, radius)
-    a = np.clip(1.0 - d, 0.0, 1.0) ** 2.0 * peak
-
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    rgb = pygame.surfarray.pixels3d(surf)
-    alpha = pygame.surfarray.pixels_alpha(surf)
-    rgb[:, :, 0] = color[0]
-    rgb[:, :, 1] = color[1]
-    rgb[:, :, 2] = color[2]
-    alpha[:, :] = a.T.astype(np.uint8)
-    del rgb, alpha
+    if HAVE_NUMPY:
+        yy, xx = np.mgrid[0:h, 0:w]
+        d = np.sqrt((xx - center[0]) ** 2 + (yy - center[1]) ** 2) / max(1.0, radius)
+        a = np.clip(1.0 - d, 0.0, 1.0) ** 2.0 * peak
+        rgb = pygame.surfarray.pixels3d(surf)
+        alpha = pygame.surfarray.pixels_alpha(surf)
+        rgb[:, :, 0] = color[0]
+        rgb[:, :, 1] = color[1]
+        rgb[:, :, 2] = color[2]
+        alpha[:, :] = a.T.astype(np.uint8)
+        del rgb, alpha
+    else:
+        # Same ordering as `glow`: the ring at radius r carries the profile at r, so the outer
+        # rings are the faint ones.
+        steps = 64
+        cx, cy = int(center[0]), int(center[1])
+        for i in range(steps):
+            t = (i + 1) / steps
+            r = int(radius * (1.0 - t)) + 1
+            pygame.draw.circle(surf, (*color, int((t ** 2.0) * peak)), (cx, cy), max(1, r))
 
     _cache[key] = surf
     return surf
@@ -160,20 +222,37 @@ def vignette(size, strength: int = 190) -> pygame.Surface:
     if key in _cache:
         return _cache[key]
 
-    yy, xx = np.mgrid[0:h, 0:w]
-    nx = (xx - w * 0.5) / (w * 0.5)
-    ny = (yy - h * 0.5) / (h * 0.5)
-    d = np.sqrt(nx * nx + ny * ny) / 1.4142
-    a = np.clip((d - 0.42) / 0.58, 0.0, 1.0) ** 1.9 * strength
-
     surf = pygame.Surface((w, h), pygame.SRCALPHA)
-    rgb = pygame.surfarray.pixels3d(surf)
-    alpha = pygame.surfarray.pixels_alpha(surf)
-    rgb[:, :, 0] = theme.VIGNETTE[0]
-    rgb[:, :, 1] = theme.VIGNETTE[1]
-    rgb[:, :, 2] = theme.VIGNETTE[2]
-    alpha[:, :] = a.T.astype(np.uint8)
-    del rgb, alpha
+    if HAVE_NUMPY:
+        yy, xx = np.mgrid[0:h, 0:w]
+        nx = (xx - w * 0.5) / (w * 0.5)
+        ny = (yy - h * 0.5) / (h * 0.5)
+        d = np.sqrt(nx * nx + ny * ny) / 1.4142
+        a = np.clip((d - 0.42) / 0.58, 0.0, 1.0) ** 1.9 * strength
+
+        rgb = pygame.surfarray.pixels3d(surf)
+        alpha = pygame.surfarray.pixels_alpha(surf)
+        rgb[:, :, 0] = theme.VIGNETTE[0]
+        rgb[:, :, 1] = theme.VIGNETTE[1]
+        rgb[:, :, 2] = theme.VIGNETTE[2]
+        alpha[:, :] = a.T.astype(np.uint8)
+        del rgb, alpha
+    else:
+        # Nested ellipses, outside in. The corners sit beyond the largest inscribed ellipse, so
+        # the surface starts at full strength and each ellipse overwrites a lighter ring inside
+        # the last — ending at fully transparent in the middle.
+        surf.fill((*theme.VIGNETTE, strength))
+        steps = 56
+        for i in range(steps + 1):
+            t = i / steps                      # 0 at the rim, 1 at the centre
+            d = 1.4142 * (1.0 - t)
+            a = max(0.0, min(1.0, (d - 0.42) / 0.58)) ** 1.9 * strength
+            rw = int(w * 0.5 * (1.0 - t) * 1.4142)
+            rh = int(h * 0.5 * (1.0 - t) * 1.4142)
+            if rw < 2 or rh < 2:
+                continue
+            pygame.draw.ellipse(surf, (*theme.VIGNETTE, int(a)),
+                                (w // 2 - rw, h // 2 - rh, rw * 2, rh * 2))
 
     _cache[key] = surf
     return surf

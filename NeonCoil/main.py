@@ -1,13 +1,22 @@
 #
 # /// script
-# dependencies = [
-#   "numpy",
-# ]
+# dependencies = []
 # ///
 #
-# The block above is PEP 723 inline script metadata, and it is how pygbag learns what to fetch
-# for the WebAssembly build. Without it numpy is simply absent in the browser and the game dies
-# on the first import — the desktop build never notices because numpy is installed there.
+# Deliberately empty, and the reason is worth recording.
+#
+# This asked for numpy, which is what the desktop build uses for the per-pixel work: glows, the
+# background wash, the vignette, and the whole sound bank. pygbag does list a numpy wheel, so the
+# request looked reasonable — but it only publishes one built against CPython 3.11 while its
+# current runtime is 3.12, so the fetch 404s. pygbag does not treat that as recoverable: the page
+# died on an unhandled rejection ("Cannot read properties of undefined, reading 'M_ID'") and never
+# reached the game at all.
+#
+# Rather than pin the build to an older interpreter and stay dependent on a wheel staying where it
+# is, numpy became optional. Every field generator has a pygame-only fallback that draws the same
+# ramp as nested shapes, and the sound bank has a pure-Python twin. Verified by hiding numpy from
+# the import system and running the whole suite: 142 checks pass on both paths, and the rendered
+# screens differ by about 3% — banding, not structure.
 #
 """
 Web entry point.

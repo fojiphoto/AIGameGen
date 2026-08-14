@@ -43,10 +43,19 @@ def section(name: str):
 
 
 def _fresh_app(tmp_save: Path):
-    """An App with an isolated save file, so a test run never touches real progress."""
+    """An App with an isolated save file, so a test run never touches real progress.
+
+    The caches are dropped first. Cached Font objects and cached Surfaces are both tied to the
+    pygame session that created them, so any earlier `pygame.quit()` leaves the caches holding
+    handles that raise "font module quit since font created" the next time they are drawn. Doing
+    this here rather than at each call site is what makes the suite safe to reorder.
+    """
+    from . import assets, fonts
     from .app import App
     from .save import SaveData
 
+    assets.clear_cache()
+    fonts.clear_cache()
     app = App(headless=True)
     app.save = SaveData(tmp_save)
     app.save.data["settings"]["music"] = False
@@ -830,8 +839,11 @@ def _test_web_paths(tmp: Path):
     check(s2.high_score("classic") == 10, "the game still plays with no persistence")
 
     # ── the async frame driver ───────────────────────────────────────────────
+    # No pygame.quit() here. Tearing the session down mid-suite invalidated every cached font
+    # and surface, and the tests that ran afterwards failed with an error about the font module
+    # having quit — a fault in this harness that looked exactly like a fault in the game.
     app = _fresh_app(tmp / "web-app.json")
-    try:
+    if True:
         app.on_web = True
         app.save.settings["fullscreen"] = False
         app.toggle_fullscreen()
@@ -844,8 +856,6 @@ def _test_web_paths(tmp: Path):
         check(app.frame >= frames_before + 45, "the async driver advances frames",
               f"{app.frame - frames_before} frames")
         check(not app.running, "the async driver stops when asked")
-    finally:
-        pygame.quit()
 
     # ── the packed archive the browser will actually download ────────────────
     import tarfile

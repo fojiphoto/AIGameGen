@@ -12,8 +12,8 @@ anywhere in this project.
 python run.py
 ```
 
-That is the whole setup. The launcher checks for its two dependencies, installs them if they are
-missing, and starts the game.
+That is the whole setup. The launcher checks its dependencies, installs what is missing, and starts
+the game. Only pygame is required; numpy is a fast path the game does without if it is absent.
 
 If you would rather do it by hand:
 
@@ -89,7 +89,7 @@ neoncoil/
 The game can run without a display or a sound card, which is how it is actually verified:
 
 ```bash
-python -m neoncoil --selftest        # 121 assertions, exits non-zero on failure
+python -m neoncoil --selftest        # 142 assertions, exits non-zero on failure
 python -m neoncoil --shots out/      # a PNG of every screen, for visual review
 python -m neoncoil --mode classic    # skip the menus
 python -m neoncoil --headless        # dummy video and audio drivers
@@ -99,7 +99,15 @@ The self test covers steering and body spacing, all three death conditions and t
 fires early, scoring and combo and growth, every power-up applying and expiring, the shield
 absorbing exactly one hit, level and obstacle scheduling, every screen building and navigating,
 pause genuinely freezing the simulation, the save surviving a corrupt file, letterboxing at five
-window sizes, and a frame-time budget measured as a median across batches.
+window sizes, and a frame-time budget measured as a median across batches. It also covers the
+browser-only code — the localStorage-backed save against a stub, storage that refuses, storage that
+is absent, the async frame driver, and the contents of the packed WebAssembly archive.
+
+To exercise the pygame-only paths the browser actually runs, hide numpy from the import system:
+
+```bash
+python -c "import _nonumpy, sys; from neoncoil.selftest import run_selftest; sys.exit(run_selftest())"
+```
 
 ## Notes on a few decisions
 
@@ -109,6 +117,13 @@ radius came out tighter than the snake was wide, which killed you for holding a 
 Deriving the rate from a fixed radius fixes both, and lets the radius be chosen against the length
 at which a full circle closes on itself: below about 33 segments you physically cannot loop into
 yourself.
+
+**numpy is optional.** It is the fast path for anything defined per pixel — glows, the background
+wash, the vignette, the sound bank — and every one of those has a pygame-only fallback that draws
+the same ramp as nested shapes. That is not insurance, it is the browser build: pygbag publishes a
+numpy wheel built against CPython 3.11 while its runtime is 3.12, so asking for it 404s and kills
+the page before the game loads. Both paths are tested — 142 checks pass with numpy hidden from the
+import system, and the rendered screens differ by about 3%.
 
 **Additive sprites carry their brightness in RGB.** pygame's additive blend ignores alpha, both
 per-surface and per-pixel. Every glow in the game is premultiplied and generated at the brightness

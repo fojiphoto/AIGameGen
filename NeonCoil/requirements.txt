@@ -8,7 +8,12 @@
 # tested against, and it is the one that gets wheels for new Python releases promptly.
 pygame-ce>=2.4
 
-# Used for the things that are defined per pixel rather than per shape: radial glows, the
-# background wash, the vignette, alpha premultiplication, and the audio synthesis. A Python loop
-# over a 1280x720 alpha channel takes most of a second; the array form is milliseconds.
+# OPTIONAL, and the game checks rather than assumes. Used for the things defined per pixel rather
+# than per shape — radial glows, the background wash, the vignette, alpha premultiplication and
+# the sound bank — where a Python loop over a 1280x720 alpha channel takes most of a second and
+# the array form takes milliseconds.
+#
+# Every one of those has a pygame-only fallback, because the WebAssembly build cannot have numpy:
+# pygbag publishes a wheel for it built against a runtime version it no longer ships. Install it
+# for the desktop build; the browser build runs the fallbacks and looks near-identical.
 numpy>=1.24
