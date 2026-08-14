@@ -1,0 +1,374 @@
+"""
+The application shell: window, timing, scene stack, transitions.
+
+Three decisions here shape everything above it.
+
+**A fixed virtual resolution.** The game always draws into a 1280x720 surface which is then
+scaled to fit the window, letterboxed to preserve aspect. Layout code can therefore use literal
+coordinates and never think about resolution, resizing can never move a hitbox relative to the
+art, and fullscreen is a one-line change instead of a re-layout. The cost is one scaled blit per
+frame, which is nothing next to what it buys. Mouse positions are converted back into virtual
+space before any scene sees them, so scenes never learn the window exists.
+
+**A fixed simulation timestep.** Rendering runs as fast as the display allows; the simulation
+advances in slices of `FIXED_DT` from an accumulator. At 430 px/s a single dropped frame under a
+variable timestep would move the head far enough to pass through a wall between two collision
+checks, and a game that kills you for a hitch is worse than one that runs at 55 fps.
+
+**Scenes are a stack, not a list.** Pause and game-over are pushed on top of the play scene
+rather than replacing it, so the arena keeps drawing behind them and there is no state to
+serialise and restore. The scene underneath is drawn but not updated.
+"""
+
+from __future__ import annotations
+
+import sys
+
+import pygame
+
+from . import assets, audio, fonts, theme
+from .config import (
+    FIXED_DT, GAME_H, GAME_W, MAX_FRAME_DT, TARGET_FPS, TITLE, TRANSITION_TIME,
+)
+from .fx import ease_in_out
+from .save import SaveData
+
+
+class Scene:
+    """Base scene.
+
+    `update` receives the already-fixed `dt`, may be called several times per frame, and must be
+    safe to call zero times. `draw` is called exactly once per frame.
+    """
+
+    #: When True, the scene below this one keeps drawing (used by pause and game over).
+    transparent = False
+    #: When True, the scene below keeps updating too. Nothing needs this yet, but overlays that
+    #: want the arena to stay alive behind them would.
+    updates_below = False
+
+    def __init__(self, app: "App"):
+        self.app = app
+        self.t = 0.0
+
+    def enter(self, **kwargs):
+        pass
+
+    def leave(self):
+        pass
+
+    def handle(self, event):
+        pass
+
+    def update(self, dt: float):
+        self.t += dt
+
+    def draw(self, surf: pygame.Surface):
+        pass
+
+
+class App:
+    def __init__(self, *, headless: bool = False, window_scale: float = 1.0):
+        self.headless = headless
+        pygame.init()
+
+        self.save = SaveData()
+        audio.init(self.save.settings)
+        audio.apply_settings(self.save.settings)
+
+        # In the browser the canvas is a fixed size the page owns, and neither RESIZABLE nor
+        # FULLSCREEN means anything there — the browser's own fullscreen is what a player uses.
+        self.on_web = sys.platform == "emscripten"
+
+        if self.on_web:
+            self.window = pygame.display.set_mode((GAME_W, GAME_H))
+        else:
+            flags = pygame.RESIZABLE | pygame.DOUBLEBUF
+            size = (int(GAME_W * window_scale), int(GAME_H * window_scale))
+            if self.save.settings.get("fullscreen") and not headless:
+                flags |= pygame.FULLSCREEN
+                size = (0, 0)
+            self.window = pygame.display.set_mode(size, flags)
+        pygame.display.set_caption(TITLE)
+        self._set_icon()
+
+        #: Everything is drawn here. The window only ever receives a scaled copy of it.
+        self.screen = pygame.Surface((GAME_W, GAME_H)).convert()
+
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.accumulator = 0.0
+        self.frame = 0
+        self.fps = 0.0
+
+        self.stack: list[Scene] = []
+        self._pending: tuple | None = None
+        self._transition = 0.0
+        self._transition_dir = 0
+        self.mouse = (0, 0)
+        self.mouse_down = False
+        self._audio_kicked = False
+
+        self._layout_window()
+
+    # ── window plumbing ─────────────────────────────────────────────────────
+    def _set_icon(self):
+        """A generated app icon — the snake head, on a dark rounded tile."""
+        try:
+            icon = pygame.Surface((64, 64), pygame.SRCALPHA)
+            icon.blit(assets.rounded_panel(64, 64, 16, theme.BG_MID, theme.BG_DEEP,
+                                           theme.ACCENT, 3), (0, 0))
+            head = assets.head(self.save.data.get("skin", theme.DEFAULT_SKIN), 20)
+            icon.blit(head, head.get_rect(center=(32, 32)))
+            pygame.display.set_icon(icon)
+        except pygame.error:
+            pass
+
+    def _layout_window(self):
+        """Work out the letterboxed destination rect for the virtual surface."""
+        ww, wh = self.window.get_size()
+        scale = min(ww / GAME_W, wh / GAME_H)
+        vw, vh = max(1, int(GAME_W * scale)), max(1, int(GAME_H * scale))
+        self.view = pygame.Rect((ww - vw) // 2, (wh - vh) // 2, vw, vh)
+        self.view_scale = scale if scale > 0 else 1.0
+
+    def to_virtual(self, pos) -> tuple[int, int]:
+        """Window coordinates to virtual coordinates."""
+        x = (pos[0] - self.view.x) / max(0.0001, self.view_scale)
+        y = (pos[1] - self.view.y) / max(0.0001, self.view_scale)
+        return (int(x), int(y))
+
+    def toggle_fullscreen(self):
+        # A no-op in the browser: the page owns the canvas, and the player's own F11 already does
+        # the right thing. Calling set_mode with FULLSCREEN there breaks the canvas instead.
+        if self.on_web:
+            return
+        want = not self.save.settings.get("fullscreen", False)
+        self.save.settings["fullscreen"] = want
+        self.save.mark()
+        self.save.flush()
+        try:
+            if want:
+                self.window = pygame.display.set_mode((0, 0),
+                                                      pygame.FULLSCREEN | pygame.DOUBLEBUF)
+            else:
+                self.window = pygame.display.set_mode((GAME_W, GAME_H),
+                                                      pygame.RESIZABLE | pygame.DOUBLEBUF)
+        except pygame.error:
+            # Some display drivers refuse a mode change. Keep the old surface and the old flag.
+            self.save.settings["fullscreen"] = not want
+        self._layout_window()
+
+    # ── scenes ──────────────────────────────────────────────────────────────
+    @property
+    def scene(self) -> Scene | None:
+        return self.stack[-1] if self.stack else None
+
+    def push(self, scene: Scene, **kwargs):
+        scene.enter(**kwargs)
+        self.stack.append(scene)
+
+    def pop(self):
+        if self.stack:
+            self.stack.pop().leave()
+
+    def switch(self, scene: Scene, **kwargs):
+        """Replace the whole stack, behind a wipe."""
+        self._pending = (scene, kwargs)
+        self._transition = 0.0
+        self._transition_dir = 1
+
+    def switch_now(self, scene: Scene, **kwargs):
+        while self.stack:
+            self.pop()
+        self.push(scene, **kwargs)
+
+    def quit(self):
+        self.running = False
+
+    # ── the loop ────────────────────────────────────────────────────────────
+    def _pump(self):
+        for event in pygame.event.get():
+            # Browsers refuse to start audio until the page has been interacted with, so the
+            # first real input is the earliest moment music can begin. Cheap to retry: start_music
+            # returns immediately once a channel is already playing.
+            if self.on_web and not self._audio_kicked and event.type in (
+                    pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                self._audio_kicked = True
+                audio.apply_settings(self.save.settings)
+                audio.start_music()
+            if event.type == pygame.QUIT:
+                self.running = False
+                return
+            if event.type == pygame.VIDEORESIZE:
+                self._layout_window()
+                continue
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                self.toggle_fullscreen()
+                continue
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F1:
+                st = self.save.settings
+                st["show_fps"] = not st.get("show_fps", False)
+                self.save.mark()
+                continue
+
+            if event.type == pygame.MOUSEMOTION:
+                self.mouse = self.to_virtual(event.pos)
+                event = pygame.event.Event(event.type, {**event.dict, "pos": self.mouse})
+            elif event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+                self.mouse = self.to_virtual(event.pos)
+                if event.button == 1:
+                    self.mouse_down = (event.type == pygame.MOUSEBUTTONDOWN)
+                event = pygame.event.Event(event.type, {**event.dict, "pos": self.mouse})
+
+            # A scene mid-transition should not receive input meant for the next one.
+            if self._transition_dir == 0 and self.scene:
+                self.scene.handle(event)
+
+    def _advance_transition(self, dt: float):
+        if self._transition_dir == 0:
+            return
+        self._transition += dt / (TRANSITION_TIME * 0.5)
+        if self._transition_dir == 1 and self._transition >= 1.0:
+            scene, kwargs = self._pending or (None, {})
+            self._pending = None
+            if scene is not None:
+                self.switch_now(scene, **kwargs)
+            self._transition = 1.0
+            self._transition_dir = -1
+        elif self._transition_dir == -1 and self._transition <= 0.0:
+            self._transition = 0.0
+            self._transition_dir = 0
+
+        if self._transition_dir == -1:
+            self._transition -= dt / (TRANSITION_TIME * 0.5) * 2.0
+            self._transition = max(0.0, self._transition)
+
+    def _draw_transition(self, surf: pygame.Surface):
+        if self._transition <= 0.001:
+            return
+        k = ease_in_out(min(1.0, self._transition))
+        # Two blades closing from the edges. Reads as deliberate; a plain fade to black reads
+        # as a loading screen.
+        h = int(GAME_H * 0.5 * k)
+        blade = pygame.Surface((GAME_W, max(1, h)), pygame.SRCALPHA)
+        blade.fill((*theme.BG_DEEP, 255))
+        surf.blit(blade, (0, 0))
+        surf.blit(blade, (0, GAME_H - h))
+        if k > 0.55:
+            line = pygame.Surface((GAME_W, 3), pygame.SRCALPHA)
+            line.fill((*theme.ACCENT, int(200 * (k - 0.55) / 0.45)))
+            surf.blit(line, (0, h - 2))
+            surf.blit(line, (0, GAME_H - h))
+
+    def step(self, *, max_frames: int | None = None) -> bool:
+        """Advance and draw exactly one frame. Returns whether the game should keep running.
+
+        Factored out of the loop so the same frame can be driven from two places: a plain
+        `while` on the desktop, and the browser's own event loop in the web build, where a
+        blocking loop would freeze the page. Nothing about a frame depends on which driver is
+        calling it.
+        """
+        raw = self.clock.tick(TARGET_FPS) / 1000.0
+        dt = min(raw, MAX_FRAME_DT)
+        self.fps = self.clock.get_fps()
+
+        self._pump()
+        if not self.running:
+            return False
+
+        self._advance_transition(dt)
+
+        # Fixed-step simulation from an accumulator. The stack is walked so a transparent
+        # overlay can opt the scene beneath it back into updating.
+        self.accumulator += dt
+        steps = 0
+        while self.accumulator >= FIXED_DT and steps < 8:
+            self.accumulator -= FIXED_DT
+            steps += 1
+            self._update_stack(FIXED_DT)
+        if steps == 8:
+            # Badly behind; drop the backlog rather than compounding it next frame.
+            self.accumulator = 0.0
+
+        self._draw_stack()
+        self.frame += 1
+        if max_frames is not None and self.frame >= max_frames:
+            self.running = False
+        return self.running
+
+    def shutdown(self):
+        self.save.flush()
+        pygame.quit()
+
+    def run(self, first_scene: Scene, *, max_frames: int | None = None):
+        """Desktop driver."""
+        self.push(first_scene)
+        while self.running:
+            self.step(max_frames=max_frames)
+        self.shutdown()
+
+    async def run_async(self, first_scene: Scene, *, max_frames: int | None = None):
+        """Browser driver.
+
+        Identical to `run` apart from yielding to the event loop once per frame, which is what
+        lets the page stay responsive and lets the browser present the canvas. pygbag requires
+        the entry point to be a coroutine for exactly this reason.
+        """
+        import asyncio
+
+        self.push(first_scene)
+        while self.running:
+            self.step(max_frames=max_frames)
+            await asyncio.sleep(0)
+        self.shutdown()
+
+    def _update_stack(self, dt: float):
+        if not self.stack:
+            return
+        top = self.stack[-1]
+        if top.updates_below and len(self.stack) > 1:
+            self.stack[-2].update(dt)
+        top.update(dt)
+
+    def _draw_stack(self):
+        if not self.stack:
+            self.screen.fill(theme.BG_DEEP)
+        else:
+            # Find the deepest scene that has to be drawn: walk down through transparent ones.
+            start = len(self.stack) - 1
+            while start > 0 and self.stack[start].transparent:
+                start -= 1
+            for i in range(start, len(self.stack)):
+                self.stack[i].draw(self.screen)
+
+        self._draw_transition(self.screen)
+
+        if self.save.settings.get("show_fps"):
+            fonts.draw(self.screen, f"{self.fps:5.1f} fps", (GAME_W - 12, GAME_H - 10), 15,
+                       theme.TEXT_FAINT, anchor="bottomright", bold=False, shadow=1)
+
+        self.present()
+
+    def present(self):
+        """Scale the virtual surface into the window."""
+        if self.view.size == (GAME_W, GAME_H):
+            self.window.blit(self.screen, self.view.topleft)
+        else:
+            # smoothscale on a non-integer scale, plain scale when doubling exactly: the former
+            # avoids shimmer, the latter avoids blurring crisp art for no reason.
+            if abs(self.view_scale - round(self.view_scale)) < 0.001 and self.view_scale >= 1.0:
+                pygame.transform.scale(self.screen, self.view.size, self.window.subsurface(self.view))
+            else:
+                pygame.transform.smoothscale(self.screen, self.view.size,
+                                             self.window.subsurface(self.view))
+        if self.view.size != self.window.get_size():
+            # Letterbox bars. Filled every frame because a mode change can leave artefacts.
+            ww, wh = self.window.get_size()
+            for bar in (pygame.Rect(0, 0, ww, self.view.top),
+                        pygame.Rect(0, self.view.bottom, ww, wh - self.view.bottom),
+                        pygame.Rect(0, 0, self.view.left, wh),
+                        pygame.Rect(self.view.right, 0, ww - self.view.right, wh)):
+                if bar.w > 0 and bar.h > 0:
+                    self.window.fill((0, 0, 0), bar)
+        pygame.display.flip()

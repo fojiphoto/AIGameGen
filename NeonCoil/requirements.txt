@@ -1,0 +1,14 @@
+# NEON COIL — the entire dependency list.
+#
+# There is no third entry, and there are no asset files anywhere in the project: every sprite,
+# gradient, icon, particle and sound effect is generated at runtime from these two libraries.
+#
+# pygame-ce is the maintained community fork of pygame. It imports as `pygame`, so plain
+# `pygame` also works if that is what is already installed — but ce is what this was built and
+# tested against, and it is the one that gets wheels for new Python releases promptly.
+pygame-ce>=2.4
+
+# Used for the things that are defined per pixel rather than per shape: radial glows, the
+# background wash, the vignette, alpha premultiplication, and the audio synthesis. A Python loop
+# over a 1280x720 alpha channel takes most of a second; the array form is milliseconds.
+numpy>=1.24

@@ -30,3 +30,10 @@ android/keys/
 # os
 Thumbs.db
 .DS_Store
+
+# NeonCoil: the pygbag template cache and Python bytecode are build artefacts. The web build
+# under NeonCoil/build/web IS committed, because that is what the arcade page serves.
+NeonCoil/build/web-cache/
+NeonCoil/build/version.txt
+__pycache__/
+*.pyc
