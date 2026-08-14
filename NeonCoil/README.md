@@ -64,6 +64,50 @@ Your high scores, unlocked skins and settings are saved automatically to
 `%APPDATA%\NeonCoil\save.json` (or `~/.local/share/NeonCoil/` elsewhere). A missing or corrupt
 save resolves to defaults rather than an error.
 
+## Putting it on the web
+
+The game is a Python program, so it does not run in a browser as-is. pygbag compiles CPython and
+pygame to WebAssembly and emits a static folder — no server, no build step at the far end, the same
+property the rest of the arcade has. From a player's side it behaves like any WebGL build: it loads
+in the page, with nothing to install.
+
+From the repository root:
+
+```bash
+npm run publish:neoncoil
+```
+
+That runs the test suite, compiles to WebAssembly, and rebuilds the arcade site into `docs/`. Then:
+
+```bash
+git add -A && git commit -m "Update NEON COIL" && git push
+```
+
+GitHub Pages serves `docs/` from the default branch and updates within a minute or two.
+
+| | |
+|---|---|
+| Play | `https://fojiphoto.github.io/AIGameGen/play/neon-coil/` |
+| Embed in another page | `https://fojiphoto.github.io/AIGameGen/embed/neon-coil.html` |
+| Arcade index | `https://fojiphoto.github.io/AIGameGen/` |
+
+To drop it into your own site:
+
+```html
+<iframe src="https://fojiphoto.github.io/AIGameGen/embed/neon-coil.html"
+        style="width:100%;aspect-ratio:16/9;border:0;border-radius:14px"
+        allow="autoplay; fullscreen" allowfullscreen
+        title="NEON COIL"></iframe>
+```
+
+The `allow` attribute is not optional. Without it the game loads and plays in silence, which reads
+as a bug in the game rather than a missing permission on the frame.
+
+Two things about the browser build worth knowing. The first load fetches pygbag's Python runtime
+(about 20 MB) from its CDN and the browser caches it afterwards, so the first visit is slow and the
+rest are not. And it waits for a click before starting, because browsers refuse to begin audio
+without one — that gate is what makes the sound work.
+
 ## Layout
 
 ```

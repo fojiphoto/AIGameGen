@@ -2,7 +2,7 @@
   "name": "factorial-forge",
   "private": true,
   "version": "0.1.0",
-  "description": "AI 2D Game Generator — prompt to playable game to offline Android APK",
+  "description": "AI 2D Game Generator \u2014 prompt to playable game to offline Android APK",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -15,6 +15,7 @@
     "test": "node --test \"packages/*/test/*.test.mjs\"",
     "e2e": "node tools/e2e.mjs",
     "publish:web": "node packages/engine-runner/build.mjs && node tools/publish-web.mjs",
+    "publish:neoncoil": "node tools/publish-neoncoil.mjs",
     "build:engine": "node packages/engine-runner/build.mjs",
     "start": "node apps/api/src/server.mjs",
     "api": "node apps/api/src/server.mjs",
