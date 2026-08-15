@@ -29,6 +29,20 @@ const CLOSE = '<!-- forge-loader:end -->';
 const PRELOAD_OPEN = '<!-- forge-preload:begin -->';
 const PRELOAD_CLOSE = '<!-- forge-preload:end -->';
 
+/**
+ * Where the published site lives, as a root-absolute path.
+ *
+ * GitHub Pages serves a project site under the repository name, so pages sit at
+ * `/AIGameGen/play/<slug>/` rather than at the domain root. The runtime base has to include that
+ * segment — see `useLocalRuntime` for why it cannot be page-relative — and it is set here rather
+ * than guessed, with an override for anyone serving the same build somewhere else.
+ *
+ * `tools/serve-docs.mjs` mounts docs/ under the same path so local testing exercises exactly the
+ * URLs production will.
+ */
+export const SITE_BASE = process.env.FORGE_SITE_BASE || '/AIGameGen/';
+export const RUNTIME_BASE = `${SITE_BASE}engine-runtime/`;
+
 /** Cut every span between two markers, swallowing one trailing newline so it is idempotent. */
 function stripBetween(html, open, close) {
   let out = html;
@@ -119,13 +133,36 @@ export function stripLoader(html) {
  * downloads all 20 MB a second time and the "optimisation" doubles the load. Now that the runtime
  * is served from our own origin, the attribute has to go.
  *
+ * **The base has to be root-absolute, not page-relative.** This is the part that took a live
+ * failure to learn. `pythons.js` publishes the base as `Module.config.cdn`, and other modules
+ * build on it — `vtx.js` does `config.cdn + "../vt/"` and then dynamically imports that. A dynamic
+ * import resolves against *the importing module's* URL, not the page's, and `vtx.js` sits one
+ * directory shallower than the page. So a page-relative base walked up one level too many and
+ * asked for `fojiphoto.github.io/engine-runtime/vt/xterm.js` — the repository segment gone, a 404,
+ * and a page that had already downloaded 21 MB before failing.
+ *
+ * An absolute path resolves identically no matter which module joins onto it, which is the only
+ * property that makes this safe. Hence `base` includes the site's root path.
+ *
  * @param {string} html
- * @param {string} rel     path from the page to the mirror root, e.g. '../../engine-runtime/'
+ * @param {string} base    root-absolute path to the mirror, e.g. '/AIGameGen/engine-runtime/'
  * @param {string[]} preload  paths under the mirror worth starting early
  */
-export function useLocalRuntime(html, rel, preload = []) {
+export function useLocalRuntime(html, base, preload = []) {
   const before = html;
-  let out = html.split('https://pygame-web.github.io/cdn/').join(rel);
+  const rel = base;
+
+  // Rewrite the upstream URL *and* any base a previous run wrote, because pygbag does not reliably
+  // regenerate index.html — so on a rebuild there is no upstream URL left to find, and a stale
+  // relative base would survive untouched. That is exactly how the page kept shipping
+  // `../../engine-runtime/` after this function had been changed to emit an absolute path.
+  const PRIOR = new RegExp(
+    'https://pygame-web\\.github\\.io/cdn/'      // upstream
+    + '|(?:\\.\\./)+engine-runtime/'             // an earlier page-relative base
+    + '|/[\\w.-]+/engine-runtime/'               // an earlier absolute base, possibly a different site
+    + '|(?<![\\w./-])engine-runtime/',           // a bare one
+    'g');
+  let out = html.replace(PRIOR, rel);
 
   // Delimited and stripped before re-inserting, for the same reason the loader is: pygbag does not
   // reliably rewrite index.html, so without this a rebuild leaves the previous hints in place —
