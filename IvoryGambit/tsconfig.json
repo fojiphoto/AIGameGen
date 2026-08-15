@@ -1,0 +1,29 @@
+{
+  "//": [
+    "Type checking only — esbuild does the bundling and strips types without ever checking them,",
+    "so without this pass a genuine type error ships silently as a runtime crash.",
+    "`noEmit` because nothing here produces output; the build script owns that.",
+    "",
+    "`strict` is on deliberately. The rules layer is full of small integers that all look alike —",
+    "a square, a piece, a move, a colour are every one of them a `number` — and strict null",
+    "checking is the only thing standing between 'this square is empty' and 'this square is a",
+    "white pawn' when a lookup misses."
+  ],
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable", "WebWorker"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src/**/*.ts"]
+}

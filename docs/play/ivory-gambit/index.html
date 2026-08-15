@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#1d1710" />
+<title>IVORY GAMBIT — chess</title>
+<meta name="description" content="A premium browser chess game. Six difficulty levels, six themes, clocks, puzzles and a full rules engine. No install, no account." />
+
+<!--
+  No web fonts.
+
+  A font request is a render-blocking round trip before the first meaningful paint, and on a
+  cold connection it is by far the slowest thing on this page — the entire game is smaller than
+  one weight of a display face. The system stack below is what the operating system has already
+  loaded, so text is on screen in the first frame, and it looks native on every platform rather
+  than looking like the same compromise everywhere.
+-->
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!--
+  The loading screen is inline, in the HTML, with its own styles already applied.
+
+  Anything else means a blank white page for as long as the stylesheet and the script take,
+  which on a slow connection is the entire first impression. This markup paints in the first
+  frame and is removed by the app once it is ready.
+-->
+<div id="boot">
+  <div class="boot-inner">
+    <div class="boot-mark" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <h1 class="boot-title">IVORY GAMBIT</h1>
+    <p class="boot-sub">Setting the board</p>
+  </div>
+</div>
+
+<div id="app" aria-hidden="true"></div>
+
+<noscript>
+  <div class="noscript">
+    <h1>IVORY GAMBIT</h1>
+    <p>This chess game needs JavaScript. Enable it and reload to play.</p>
+  </div>
+</noscript>
+
+<script src="app.js" defer></script>
+</body>
+</html>

@@ -17,6 +17,9 @@
     "publish:web": "node packages/engine-runner/build.mjs && node tools/publish-web.mjs",
     "publish:neoncoil": "node tools/publish-neoncoil.mjs",
     "publish:blockbloom": "node tools/publish-blockbloom.mjs",
+    "publish:chess": "node tools/publish-ivorygambit.mjs",
+    "build:chess": "node IvoryGambit/build.mjs",
+    "test:chess": "node IvoryGambit/build.mjs --test && node --test \"IvoryGambit/test/*.test.mjs\"",
     "build:engine": "node packages/engine-runner/build.mjs",
     "start": "node apps/api/src/server.mjs",
     "api": "node apps/api/src/server.mjs",
@@ -25,7 +28,8 @@
     "slice": "node tools/slice.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
   },
   "dependencies": {
     "fastify": "^5.2.0",

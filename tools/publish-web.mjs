@@ -85,6 +85,21 @@ const NATIVE_EXTRAS = [
     // between two black bars.
     aspect: '9/16',
   },
+  {
+    slug: 'ivory-gambit',
+    title: 'IVORY GAMBIT',
+    label: 'Hand-built',
+    family: 'chess',
+    from: join(ROOT, 'IvoryGambit', 'build', 'web'),
+    blurb: 'Full-rules chess with a real engine behind it — six difficulty levels, clocks, '
+         + 'puzzles, six themes and a piece set drawn from code rather than downloaded.',
+    stats: 'TypeScript + Canvas · 150 KB total · 186 automated checks including perft',
+    // No runtime note: unlike the two Python games this is plain JavaScript and starts instantly,
+    // which is worth saying on the card because the others need the caveat.
+    note: 'Starts instantly — no runtime to download. Plays offline once loaded.',
+    palette: { bg: '#1d1710', bgAccent: '#33261a', ground: '#4b3221', player: '#efdfc0', obstacle: '#a9784f', accent: '#e0a44a' },
+    aspect: '16/9',
+  },
 ];
 
 const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -371,9 +386,9 @@ ${covers.has('neon-coil') ? `<meta property="og:image" content="thumb/neon-coil.
   <p class="sub">
     The templates below were generated from a single line of text — layout, difficulty curve,
     palette, sound and all — and each exports as a signed Android APK that runs with no
-    internet. NEON COIL is different: a hand-built Python game, compiled to WebAssembly, and
-    included here because it shows what the same art-from-code approach looks like without a
-    generator in front of it.
+    internet. The hand-built games are here for contrast: same studio, same art-from-code
+    approach, no generator in front of it. Two are Python compiled to WebAssembly; IVORY GAMBIT
+    is TypeScript, and its whole chess engine — board, rules, search — fits in 150 KB.
   </p>
   <p><span class="pill live">${published.length} TEMPLATES</span>${extras.length ? ` <span class="pill live">${extras.length} HAND-BUILT</span>` : ''} <span class="pill">EVERY LEVEL VERIFIED FINISHABLE</span> <span class="pill">NO PLUGINS</span></p>
 
