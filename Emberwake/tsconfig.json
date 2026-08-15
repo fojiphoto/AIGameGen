@@ -1,0 +1,26 @@
+{
+  "//": [
+    "Type checking only — esbuild bundles and strips types without ever checking them, so",
+    "without this pass a genuine type error ships as a runtime crash.",
+    "",
+    "`strict` is on deliberately. This codebase is full of small numbers that all look alike —",
+    "a tile index, a pixel coordinate, a velocity, a facing direction are every one of them a",
+    "`number` — and strict null checking is the only thing standing between 'this tile is empty'",
+    "and 'this tile is a spike' when a lookup misses."
+  ],
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -100,6 +100,19 @@ const NATIVE_EXTRAS = [
     palette: { bg: '#1d1710', bgAccent: '#33261a', ground: '#4b3221', player: '#efdfc0', obstacle: '#a9784f', accent: '#e0a44a' },
     aspect: '16/9',
   },
+  {
+    slug: 'emberwake',
+    title: 'EMBERWAKE',
+    label: 'Hand-built',
+    family: 'platform adventure',
+    from: join(ROOT, 'Emberwake', 'build', 'web'),
+    blurb: 'Ten levels across five worlds, with coyote time, jump buffering and a dash. '
+         + 'Secrets, emberstones, seven enemy types and a boss at the end of the sky.',
+    stats: 'TypeScript + Canvas · 118 KB total · every level proved completable by a solver',
+    note: 'Starts instantly. Keyboard, touch and gamepad. Plays offline once loaded.',
+    palette: { bg: '#140b1e', bgAccent: '#2a1b40', ground: '#7ec850', player: '#ff9b4a', obstacle: '#6f7f8c', accent: '#ffd27a' },
+    aspect: '16/9',
+  },
 ];
 
 const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
