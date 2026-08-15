@@ -135,6 +135,9 @@ class PlayScene(Scene):
         self.objective = None
         self.objective_done = False
         self._pending_gameover = 0.0
+        #: The empty board, composed once — see `_empty_board`.
+        self._board_cache = None
+        self._board_cache_theme = None
 
     # ── lifecycle ───────────────────────────────────────────────────────────────
     def enter(self, mode_key: str = "endless", **kwargs):
@@ -547,17 +550,31 @@ class PlayScene(Scene):
         k = self.board_pulse / BOARD_PULSE_TIME
         return 1.0 + 0.03 * math.sin(k * math.pi)
 
+    def _empty_board(self) -> pygame.Surface:
+        """The tray and all sixty-four wells, composed once.
+
+        This was sixty-five blits a frame — a 659x659 panel plus every empty cell — for something
+        that only changes when the theme does. Natively that is invisible; measured inside the
+        browser it was a large part of a 21 ms frame, because WebAssembly pygame has no vectorised
+        blitters and pays nearly full price per pixel. One cached surface, one blit.
+
+        A filled cell draws its tile straight over the well underneath it, which costs a little
+        overdraw and saves having to keep two representations of the board in step.
+        """
+        if self._board_cache is None or self._board_cache_theme != theme.current.key:
+            s = pygame.Surface((BOARD_W, BOARD_W), pygame.SRCALPHA)
+            s.blit(tiles.board_panel(BOARD_W, BOARD_W, BOARD_RADIUS), (0, 0))
+            well = tiles.well(CELL)
+            for r in range(GRID):
+                for c in range(GRID):
+                    s.blit(well, (BOARD_PAD + c * _STRIDE, BOARD_PAD + r * _STRIDE))
+            self._board_cache = s
+            self._board_cache_theme = theme.current.key
+        return self._board_cache
+
     def _draw_board(self, surf: pygame.Surface, ox: int, oy: int) -> None:
         rect = board_rect().move(ox, oy)
-        surf.blit(tiles.board_panel(BOARD_W, BOARD_W, BOARD_RADIUS), rect.topleft)
-
-        # Empty wells first, then the halo pass, then the tiles. Two passes over the filled cells
-        # because additive light has to be laid down before the opaque things that sit on it.
-        for r in range(GRID):
-            for c in range(GRID):
-                if self.board.at(c, r) == EMPTY:
-                    x, y = cell_pos(c, r)
-                    surf.blit(tiles.well(CELL), (x + ox, y + oy))
+        surf.blit(self._empty_board(), rect.topleft)
 
         if theme.BLOCK_GLOW:
             for r in range(GRID):

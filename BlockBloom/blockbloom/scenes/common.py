@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 
 import pygame
 
@@ -35,7 +36,13 @@ class DriftingBlocks:
 
     ANGLE_STEP = 6.0
 
+    #: Halved in the browser, for the same reason the backdrop's motes are: rotated sprites are
+    #: decoration, and decoration is the first thing to give up when frames are scarce.
+    WEB_COUNT = 4
+
     def __init__(self, count: int = 7, seed: int = 3):
+        if sys.platform == "emscripten":
+            count = min(count, self.WEB_COUNT)
         rng = random.Random(seed)
         self.items = []
         for i in range(count):

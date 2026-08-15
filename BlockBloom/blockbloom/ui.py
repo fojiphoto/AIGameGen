@@ -15,11 +15,14 @@ from __future__ import annotations
 
 import contextlib
 import math
+import sys
 
 import pygame
 
 from . import assets, audio, fonts, theme
 from .fx import ease_out_back
+
+_ON_WEB = sys.platform == "emscripten"
 
 
 def approach(current: float, target: float, rate: float, dt: float) -> float:
@@ -138,6 +141,17 @@ def sliding(surf: pygame.Surface, region: pygame.Rect, *, dy: float = 0.0, alpha
             surf.blit(layer, (region.x, region.y + int(dy)), region)
     finally:
         _release_layer()
+
+
+@contextlib.contextmanager
+def nothing(surf: pygame.Surface):
+    """Yield the surface itself — the no-layer case, for callers that sometimes need one.
+
+    Exists so a draw site can choose between compositing and drawing directly without growing a
+    second copy of its body. A layer costs a clear and a blit of its whole region, which is worth
+    paying while something is sliding and pure waste once it has arrived.
+    """
+    yield surf
 
 
 def slide_in(surf: pygame.Surface, rect: pygame.Rect, paint, *,
@@ -489,13 +503,21 @@ def panel(surf, rect, *, radius=20, alpha=246, accent=None):
 
 
 def title(surf, text, pos, size=76, *, color=None, accent=None, tracking=8.0, anchor="center"):
-    """The logo treatment: a wide additive halo under tightly tracked capitals."""
+    """The logo treatment: a wide additive halo under tightly tracked capitals.
+
+    The wide halo is skipped in the browser. For a 300px wordmark it is a 372x372 additive blit —
+    about 138,000 pixels — and the menu draws two of them, every frame, behind text that never
+    moves. WebAssembly pygame has no vectorised blitters, so that is several milliseconds of a
+    16.7 ms budget spent on a glow. The per-glyph halo below stays, so the wordmark is still lit;
+    what goes is the broad wash around it, which is the part nobody would miss in a screenshot.
+    """
     color = color or theme.TEXT
     accent = accent or theme.ACCENT
-    surf_txt = fonts.render_tracked(text, size, accent, True, tracking)
-    rect = surf_txt.get_rect(**{anchor: (int(pos[0]), int(pos[1]))})
-    halo = assets.glow(int(rect.w * 0.62), accent, falloff=3.0, peak=58)
-    surf.blit(halo, halo.get_rect(center=rect.center), special_flags=pygame.BLEND_ADD)
+    if not _ON_WEB:
+        surf_txt = fonts.render_tracked(text, size, accent, True, tracking)
+        rect = surf_txt.get_rect(**{anchor: (int(pos[0]), int(pos[1]))})
+        halo = assets.glow(int(rect.w * 0.62), accent, falloff=3.0, peak=58)
+        surf.blit(halo, halo.get_rect(center=rect.center), special_flags=pygame.BLEND_ADD)
     return fonts.draw(surf, text, pos, size, color, anchor=anchor, tracking=tracking,
                       glow=accent, glow_alpha=110, shadow=3)
 

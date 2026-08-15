@@ -84,7 +84,12 @@ class MenuScene(ChromeScene):
         # above it. Three stacked labels need room for three, not two and a squeeze.
         card = pygame.Rect(0, 0, 340, 112)
         card.center = (GAME_W // 2, 998)
-        with ui.sliding(surf, card.inflate(70, 70), dy=dy, alpha=alpha) as layer:
+        # Once the entrance has settled there is nothing to slide and nothing to fade, so the
+        # scratch layer is pure overhead — a clear and a blit of 410x182 pixels, every frame,
+        # forever. The buttons already skipped it; this did not.
+        settled = abs(dy) < 0.4 and alpha >= 255
+        with ui.nothing(surf) if settled else ui.sliding(
+                surf, card.inflate(70, 70), dy=dy, alpha=alpha) as layer:
             ui.panel(layer, card, radius=20)
             best = save.best_overall()
             fonts.draw(layer, "YOUR BEST", (card.centerx, card.y + 26), 12, theme.TEXT_FAINT,

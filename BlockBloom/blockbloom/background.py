@@ -28,10 +28,20 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 
 import pygame
 
 from . import assets, theme
+
+#: The browser gets fewer moving lights. Each blob and each mote is an additive full-alpha blit,
+#: and 39 of them a frame is the heaviest thing in a frame that otherwise draws a static board —
+#: on the desktop that is 2.9 ms and invisible, in WebAssembly it is the difference between a game
+#: that feels smooth and one that does not. Cutting decoration is the right thing to cut: nobody
+#: has ever noticed how many blurred dots drift behind a puzzle board.
+_ON_WEB = sys.platform == "emscripten"
+MOTE_COUNT = 10 if _ON_WEB else 34
+BLOB_LIMIT = 3 if _ON_WEB else 99
 
 
 class Backdrop:
@@ -46,7 +56,7 @@ class Backdrop:
         self.intensity = intensity
         self.t = 0.0
         self.seed = seed
-        self.blob_count = max(0, int(blobs))
+        self.blob_count = min(BLOB_LIMIT, max(0, int(blobs)))
         self._theme_key = None
         self._build()
 
@@ -83,7 +93,7 @@ class Backdrop:
             })
 
         self.motes = []
-        for _ in range(34):
+        for _ in range(MOTE_COUNT):
             self.motes.append({
                 "x": rng.uniform(0, self.w),
                 "y": rng.uniform(0, self.h),
@@ -93,6 +103,28 @@ class Backdrop:
                 "a": rng.randint(26, 80),
                 "c": rng.choice((theme.ACCENT, theme.ACCENT_2, (220, 226, 255))),
             })
+
+        if _ON_WEB:
+            # Flatten everything that is either static or too slow to notice into the one opaque
+            # surface the frame already has to blit, and stop drawing them per frame.
+            #
+            # This is the single biggest saving available on the web, and the reason is that
+            # per-pixel cost is not what it is on the desktop. Measured from inside the browser, a
+            # frame that costs 2.9 ms natively costs 50 ms in WebAssembly — a 17x multiplier, where
+            # Python-level work is only 3-6x. pygame-ce's wasm build has no vectorised blitters, so
+            # every full-screen alpha pass is punishing while ordinary Python is merely slower.
+            #
+            # The vignette is genuinely static. The blobs orbit at 0.03-0.11 Hz, which over a whole
+            # run moves them by less than their own blur radius — freezing them at their starting
+            # position is not a compromise anyone can see. Together they were two full-screen alpha
+            # passes and about half a million pixels of additive work, every frame, forever.
+            for b in self.blobs:
+                g = assets.glow(b["r"], b["color"], falloff=2.6,
+                                peak=int(b["alpha"] * self.intensity))
+                self.base.blit(g, (int(b["cx"] - b["r"]), int(b["cy"] - b["r"])),
+                               special_flags=pygame.BLEND_ADD)
+            self.base.blit(self.vignette, (0, 0))
+            self.blobs = []
 
     def retheme(self) -> None:
         """Rebuild if the theme has changed since this backdrop was made.
@@ -138,4 +170,8 @@ class Backdrop:
             surf.blit(g, (int(m["x"]), int(m["y"])), special_flags=add)
 
     def draw_vignette(self, surf: pygame.Surface) -> None:
+        # Already part of the ground on the web — see `_build`. Callers do not need to know, which
+        # is why this stays a method rather than becoming their problem.
+        if _ON_WEB:
+            return
         surf.blit(self.vignette, (0, 0))
