@@ -1,0 +1,119 @@
+[
+  {
+    "slug": "neon-coil",
+    "top": [
+      26,
+      22,
+      60
+    ],
+    "bottom": [
+      7,
+      6,
+      26
+    ]
+  },
+  {
+    "slug": "block-bloom",
+    "top": [
+      30,
+      37,
+      70
+    ],
+    "bottom": [
+      13,
+      16,
+      32
+    ]
+  },
+  {
+    "slug": "rhythm-dash-glitch-circuit",
+    "top": [
+      58,
+      30,
+      92
+    ],
+    "bottom": [
+      16,
+      10,
+      34
+    ]
+  },
+  {
+    "slug": "endless-runner-cinder-sprint",
+    "top": [
+      86,
+      28,
+      22
+    ],
+    "bottom": [
+      26,
+      10,
+      10
+    ]
+  },
+  {
+    "slug": "tap-to-fly-void-runner",
+    "top": [
+      26,
+      30,
+      78
+    ],
+    "bottom": [
+      8,
+      9,
+      28
+    ]
+  },
+  {
+    "slug": "snake-wild-dash",
+    "top": [
+      20,
+      66,
+      44
+    ],
+    "bottom": [
+      7,
+      22,
+      16
+    ]
+  },
+  {
+    "slug": "2048-merge-ink-edge",
+    "top": [
+      46,
+      46,
+      52
+    ],
+    "bottom": [
+      16,
+      16,
+      20
+    ]
+  },
+  {
+    "slug": "memory-match-thorn-sprint",
+    "top": [
+      76,
+      40,
+      66
+    ],
+    "bottom": [
+      26,
+      14,
+      26
+    ]
+  },
+  {
+    "slug": "sliding-puzzle-frost-drift",
+    "top": [
+      30,
+      60,
+      88
+    ],
+    "bottom": [
+      10,
+      20,
+      34
+    ]
+  }
+]
