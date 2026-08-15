@@ -35,6 +35,18 @@ function boot(): void {
   const app = new App(root, workerUrl);
   app.start();
 
+  /**
+   * A handle on the running game, behind `?debug`.
+   *
+   * Bundled and minified code is opaque from a console, and the questions worth asking about a
+   * chess interface — did the engine actually reply, is the hint set, which position does the
+   * board think it is showing — cannot be answered from the DOM. One property, off by default,
+   * makes the difference between diagnosing a turn-loop bug in a minute and guessing at it.
+   */
+  if (location.search.includes('debug')) {
+    (window as unknown as { __IVORY__: App }).__IVORY__ = app;
+  }
+
   afterPaint(() => {
     const bootScreen = document.getElementById('boot');
     if (!bootScreen) return;
