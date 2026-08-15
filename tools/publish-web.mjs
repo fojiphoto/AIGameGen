@@ -28,6 +28,7 @@ import { planDeterministic } from '@forge/ai';
 import { buildAnyGame } from '@forge/generation/genres';
 import { bundleGame } from '@forge/bundler';
 import { GENRE_REGISTRY, IMPLEMENTED_GENRES } from '@forge/schema/genres';
+import { MIRROR_DIR, PYGBAG_VERSION } from './mirror-runtime.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUT = join(ROOT, 'docs');
@@ -62,9 +63,8 @@ const NATIVE_EXTRAS = [
     from: join(ROOT, 'NeonCoil', 'build', 'web'),
     blurb: 'Free-steering snake with a body that traces real curves. Three modes, six power-ups, '
          + 'eight skins, and a combo chain worth playing for.',
-    stats: 'Python + pygame, compiled to WebAssembly · zero asset files · 121 automated checks',
-    // The runtime is fetched from the pygbag CDN on first load and then cached by the browser.
-    note: 'First load downloads a ~20 MB Python runtime, then it is cached. Click the page to start.',
+    stats: 'Python + pygame, compiled to WebAssembly · zero asset files · 156 automated checks',
+    note: 'First load fetches a ~10 MB engine runtime from this site, then the browser caches it.',
     palette: { bg: '#09081a', bgAccent: '#131130', ground: '#2a1155', player: '#00e8ff', obstacle: '#ff3ea5', accent: '#ffca40' },
     aspect: '16/9',
   },
@@ -77,7 +77,7 @@ const NATIVE_EXTRAS = [
     blurb: 'Drag blocks onto an 8x8 board and fill rows to clear them. Smart piece dealing that '
          + 'never hands you a dead board, escalating combos, ten objectives and five themes.',
     stats: 'Python + pygame, compiled to WebAssembly · zero asset files · 239 automated checks',
-    note: 'First load downloads a ~20 MB Python runtime, then it is cached. Click the page to start.',
+    note: 'First load fetches a ~10 MB engine runtime from this site, then the browser caches it.',
     palette: { bg: '#121628', bgAccent: '#1e2546', ground: '#2f3a68', player: '#5aaaff', obstacle: '#ff74a8', accent: '#ffce56' },
     // Portrait, so the embed snippet has to say so — a 9:16 game in a 16:9 box is a tall sliver
     // between two black bars.
@@ -97,6 +97,27 @@ await mkdir(join(OUT, 'embed'), { recursive: true });
 // Pages runs Jekyll by default, which skips paths beginning with an underscore and slows
 // every deploy down for no benefit here.
 await writeFile(join(OUT, '.nojekyll'), '');
+
+/**
+ * The WebAssembly runtime the Python games need, served from our own site.
+ *
+ * It used to come from `pygame-web.github.io` — a free GitHub Pages site like this one, but not
+ * ours. When it went down, both Python games stopped starting, which is not a dependency worth
+ * having on a page someone is being shown. It is copied rather than linked because publishing
+ * deletes `docs/` first, so the master copy lives in `vendor/` and lands here on every build.
+ *
+ * 21.9 MB on disk, about 10.5 MB over the wire once GitHub gzips it, against a 1 GB site limit.
+ */
+try {
+  await access(MIRROR_DIR);
+  await cp(MIRROR_DIR, join(OUT, 'engine-runtime'), { recursive: true });
+  console.log(`  \x1b[32mok\x1b[0m   ${'Runtime'.padEnd(16)} ${'pygbag ' + PYGBAG_VERSION} `
+              + `\x1b[2mengine-runtime/ (self-hosted)\x1b[0m`);
+} catch {
+  console.log(`  \x1b[33mskip\x1b[0m ${'Runtime'.padEnd(16)} not mirrored — the Python games will `
+              + `fall back to pygame-web.github.io`);
+  console.log(`       mirror it with:  node tools/mirror-runtime.mjs`);
+}
 
 const published = [];
 let engineWritten = false;

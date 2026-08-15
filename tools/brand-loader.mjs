@@ -26,6 +26,23 @@
 //: loading screens — including one built from a stale, half-edited config.
 const OPEN = '<!-- forge-loader:begin -->';
 const CLOSE = '<!-- forge-loader:end -->';
+const PRELOAD_OPEN = '<!-- forge-preload:begin -->';
+const PRELOAD_CLOSE = '<!-- forge-preload:end -->';
+
+/** Cut every span between two markers, swallowing one trailing newline so it is idempotent. */
+function stripBetween(html, open, close) {
+  let out = html;
+  for (;;) {
+    const start = out.indexOf(open);
+    if (start === -1) break;
+    const end = out.indexOf(close, start);
+    if (end === -1) break;
+    let after = end + close.length;
+    if (out[after] === '\n') after += 1;
+    out = out.slice(0, start) + out.slice(after);
+  }
+  return out;
+}
 
 /**
  * Force the aspect ratio pygbag writes into its own page.
@@ -58,18 +75,7 @@ export function setAspect(html, w, h) {
  * existed still cleans up.
  */
 export function stripLoader(html) {
-  let out = html;
-  for (;;) {
-    const start = out.indexOf(OPEN);
-    if (start === -1) break;
-    const end = out.indexOf(CLOSE, start);
-    if (end === -1) break;
-    // Swallow the newline that followed the closing marker as well, so removing and re-adding is
-    // byte-for-byte identical rather than growing the file by one character every rebuild.
-    let after = end + CLOSE.length;
-    if (out[after] === '\n') after += 1;
-    out = out.slice(0, start) + out.slice(after);
-  }
+  let out = stripBetween(html, OPEN, CLOSE);
   // The unmarked form, from before the markers existed. It is always one contiguous span — a style
   // block, the overlay div, then the script that drives them — so it is cut as one span, from the
   // style tag to the `</script>` that closes the driver.
@@ -85,6 +91,55 @@ export function stripLoader(html) {
     out = out.slice(0, start) + out.slice(end + '</script>'.length);
   }
   return out;
+}
+
+/**
+ * Point the page at our own copy of the runtime, and start the big files immediately.
+ *
+ * Two separate wins, both real.
+ *
+ * **Self-hosting.** The generated page fetches CPython, the standard library and pygame from
+ * `pygame-web.github.io`. That is a free GitHub Pages site like ours, but it is not ours, and the
+ * day it returned `NO DATA RECEIVED` both games stopped starting. `rel` is the path from a game
+ * page to our mirror. The layout is preserved exactly, because the loader builds some URLs by
+ * walking up from the version directory.
+ *
+ * **Preloading.** This is the part that actually shortens a first visit. Left alone the fetches
+ * are a chain — HTML, then `pythons.js`, then `main.js`, then the 13 MB `main.wasm` and the 6.5 MB
+ * `main.data`, then the pygame wheel — and each link costs a round trip before its download can
+ * even begin. A `preload` hint in the head starts all of them while the HTML is still being
+ * parsed, so the transfers overlap instead of queueing.
+ *
+ * `as="fetch"` is the correct type: these are read with `fetch`/XHR by emscripten, not as scripts.
+ * Declaring them as scripts would make the browser fetch them twice.
+ *
+ * And **no `crossorigin` attribute**, which is the trap here. On a cross-origin preload it is
+ * required; on a same-origin one it turns the request into a CORS request, and the ordinary
+ * same-origin fetch emscripten makes afterwards does not match that cache entry — so the browser
+ * downloads all 20 MB a second time and the "optimisation" doubles the load. Now that the runtime
+ * is served from our own origin, the attribute has to go.
+ *
+ * @param {string} html
+ * @param {string} rel     path from the page to the mirror root, e.g. '../../engine-runtime/'
+ * @param {string[]} preload  paths under the mirror worth starting early
+ */
+export function useLocalRuntime(html, rel, preload = []) {
+  const before = html;
+  let out = html.split('https://pygame-web.github.io/cdn/').join(rel);
+
+  // Delimited and stripped before re-inserting, for the same reason the loader is: pygbag does not
+  // reliably rewrite index.html, so without this a rebuild leaves the previous hints in place —
+  // which is how a set of `crossorigin` preloads survived the commit that removed them.
+  out = stripBetween(out, PRELOAD_OPEN, PRELOAD_CLOSE);
+  out = stripBetween(out, '<!-- forge-preload -->', '<!-- /forge-preload -->');
+
+  const hints = preload
+    .map((p) => `  <link rel="preload" href="${rel}${p}" as="fetch">`)
+    .join('\n');
+  if (hints && out.includes('</head>')) {
+    out = out.replace('</head>', `${PRELOAD_OPEN}\n${hints}\n${PRELOAD_CLOSE}\n</head>`);
+  }
+  return { html: out, applied: out !== before };
 }
 
 /**
@@ -189,7 +244,7 @@ export function brandLoader(html, brand) {
   <div class="barwrap"><div class="bar" id="forge-bar"></div></div>
   <div class="stage" id="forge-stage">Starting the engine</div>
   <div class="note" id="forge-note">
-    First visit downloads the engine runtime (~20 MB). Your browser caches it, so every visit
+    First visit downloads the engine runtime (~10 MB). Your browser caches it, so every visit
     after this one starts quickly.
   </div>
 </div>

@@ -28,7 +28,8 @@ import { spawn } from 'node:child_process';
 import { access, readFile, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import { brandLoader, setAspect } from './brand-loader.mjs';
+import { brandLoader, setAspect, useLocalRuntime } from './brand-loader.mjs';
+import { PRELOAD } from './mirror-runtime.mjs';
 
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
@@ -107,6 +108,15 @@ async function dressPage() {
     console.log(`
 ${BOLD}set the canvas aspect${RESET} `
                 + `${DIM}fb_ar = ${aspect.value} (landscape)${RESET}`);
+  }
+
+  // Our own copy of the runtime, and a head start on the big files. The page lives at
+  // docs/play/<slug>/, so the mirror is two levels up.
+  const local = useLocalRuntime(src, '../../engine-runtime/', PRELOAD);
+  if (local.applied) {
+    src = local.html;
+    console.log(`${BOLD}self-host the runtime${RESET} `
+                + `${DIM}engine-runtime/ + ${PRELOAD.length} preload hints${RESET}`);
   }
 
   src = brandLoader(src, {
