@@ -29,10 +29,26 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 
 import pygame
 
 from . import assets, theme
+
+#: The browser draws far fewer moving lights than the desktop, and that is not a small tuning
+#: knob — it is the difference between 20 fps and 60.
+#:
+#: Measured from inside Chrome on the sister project: a frame costing 2.9 ms natively cost 50 ms in
+#: WebAssembly, a 17x multiplier rather than the 3-6x that interpreter work sees. pygame-ce's wasm
+#: build has no vectorised blitters, so every full-screen alpha pass is punishing while ordinary
+#: Python is merely slower. This backdrop had four of them a frame — two scrolling grids, a
+#: vignette, and the wash — plus fifty additive glows.
+#:
+#: So on the web: the vignette and the slow blobs are flattened into the one opaque surface the
+#: frame already blits, the far grid goes with them, and the near grid keeps scrolling because the
+#: parallax is most of what makes this backdrop feel like anything.
+_ON_WEB = sys.platform == "emscripten"
+MOTE_COUNT = 12 if _ON_WEB else 46
 
 
 class Backdrop:
@@ -57,6 +73,7 @@ class Backdrop:
 
         self.grid_far = self._grid(96, theme.GRID, 26)
         self.grid_near = self._grid(32, theme.GRID, 15)
+        self.blob_count = max(0, int(blobs))
 
         # Blobs: big, slow, and few. Each has its own orbit so they never form a pattern.
         self.blobs = []
@@ -77,7 +94,7 @@ class Backdrop:
             })
 
         self.motes = []
-        for _ in range(46):
+        for _ in range(MOTE_COUNT):
             self.motes.append({
                 "x": rng.uniform(0, self.w),
                 "y": rng.uniform(0, self.h),
@@ -87,6 +104,29 @@ class Backdrop:
                 "a": rng.randint(30, 90),
                 "c": rng.choice((theme.ACCENT, (170, 180, 255), theme.ACCENT_2)),
             })
+
+        if _ON_WEB:
+            self._flatten_for_web()
+
+    def _flatten_for_web(self) -> None:
+        """Bake everything that does not need to move into the one opaque blit a frame already has.
+
+        The vignette never changes. The far grid scrolls at 7 px/s, which is slow enough that a
+        fixed offset reads the same in motion. The blobs orbit at 0.045-0.13 Hz and are wider than
+        their own travel, so freezing them is invisible. What is left moving is the near grid and a
+        dozen motes — which is what the parallax was actually made of.
+        """
+        self.base.blit(self.grid_far, (0, 0))
+        # The near grid goes in too. It scrolls at 15 px/s and losing that is a real loss, but it
+        # is a 1312x816 alpha blit — larger than the screen — and at wasm blit prices that is most
+        # of a frame. The motes and the snake still move, so the menu is not static.
+        self.base.blit(self.grid_near, (0, 0))
+        for b in self.blobs:
+            g = assets.glow(b["r"], b["color"], falloff=2.6, peak=int(b["alpha"] * self.intensity))
+            self.base.blit(g, (int(b["cx"] - b["r"]), int(b["cy"] - b["r"])),
+                           special_flags=pygame.BLEND_ADD)
+        self.base.blit(self.vignette, (0, 0))
+        self.blobs = []
 
     def _grid(self, cell: int, color: tuple, alpha: int) -> pygame.Surface:
         """One tile of grid, sized so it can be scrolled and wrapped cheaply.
@@ -123,12 +163,13 @@ class Backdrop:
         k = self.intensity
 
         # Two grids, opposite directions, different speeds — parallax without a camera.
-        gx = int((self.t * 7.0) % 96)
-        gy = int((self.t * 4.0) % 96)
-        surf.blit(self.grid_far, (-gx, -gy))
-        gx = int((-self.t * 15.0) % 32)
-        gy = int((self.t * 9.0) % 32)
-        surf.blit(self.grid_near, (-gx, -gy))
+        if not _ON_WEB:
+            gx = int((self.t * 7.0) % 96)
+            gy = int((self.t * 4.0) % 96)
+            surf.blit(self.grid_far, (-gx, -gy))
+            gx = int((-self.t * 15.0) % 32)
+            gy = int((self.t * 9.0) % 32)
+            surf.blit(self.grid_near, (-gx, -gy))
 
         # Blobs. Brightness baked at generation time; see assets.glow.
         for b in self.blobs:
@@ -142,6 +183,9 @@ class Backdrop:
             surf.blit(g, (int(m["x"]), int(m["y"])), special_flags=add)
 
     def draw_vignette(self, surf: pygame.Surface):
+        # Already part of the ground on the web — see `_flatten_for_web`. Callers need not know.
+        if _ON_WEB:
+            return
         surf.blit(self.vignette, (0, 0))
 
 

@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import math
 import random
+import sys
 
 import pygame
 
 from .. import assets, audio, fonts, theme, ui
 from ..app import Scene
 from ..background import Backdrop
-from ..config import GAME_H, GAME_W
+from ..config import GAME_H, GAME_W, HEAD_RADIUS
 from ..entities import Snake
 from ..fx import Particles
 
@@ -80,12 +81,17 @@ class DemoSnake:
     def draw(self, surf: pygame.Surface, alpha: float = 0.42):
         """Drawn onto its own layer and faded, so it sits clearly behind the interface.
 
-        This one really does cover the screen — the snake drifts anywhere in it — so unlike the
-        widget layers there is no smaller region to restrict it to. It still goes through the
-        pool, which saves the 0.86 ms an allocation costs.
+        The layer is what makes the fade look right: a snake is a run of overlapping discs, and
+        fading each of them separately shows every overlap. Fading the composed image does not.
+
+        The region is the snake's own roaming bounds rather than the whole screen. That is free on
+        the desktop and it matters in the browser, where the layer costs a clear and a blit of
+        everything inside it — at full screen that was about 1.8 million pixels a frame to fade a
+        shape a few hundred across. `WEB_BOUNDS` shrinks the roaming area to match.
         """
-        full = surf.get_rect()
-        ui.slide_in(surf, full, self.snake.draw, alpha=int(255 * alpha), bleed=full)
+        pad = int(HEAD_RADIUS * 4)
+        region = self.bounds.inflate(pad * 2, pad * 2).clip(surf.get_rect())
+        ui.slide_in(surf, region, self.snake.draw, alpha=int(255 * alpha), bleed=region)
 
 
 class ChromeScene(Scene):
@@ -102,8 +108,16 @@ class ChromeScene(Scene):
         self.backdrop = Backdrop((GAME_W, GAME_H), intensity=1.0, seed=11)
         self.particles = Particles(240)
         self.group = ui.Group()
+        # The decorative snake roams a smaller box in the browser. It is behind the interface at
+        # a third opacity, so a tighter wander is not something anyone can notice — while the layer
+        # it composites on shrinks with it, which is very much something they can feel.
+        if sys.platform == "emscripten":
+            roam = pygame.Rect(0, 0, int(GAME_W * 0.62), int(GAME_H * 0.62))
+            roam.center = (int(GAME_W * 0.62), GAME_H // 2)
+        else:
+            roam = pygame.Rect(0, 0, GAME_W, GAME_H)
         self.demo = DemoSnake(app.save.data.get("skin", theme.DEFAULT_SKIN),
-                              pygame.Rect(0, 0, GAME_W, GAME_H), length=34, seed=5)
+                              roam, length=34, seed=5)
         self._mote_timer = 0.0
 
     # ── lifecycle ───────────────────────────────────────────────────────────

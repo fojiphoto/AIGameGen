@@ -23,6 +23,7 @@ serialise and restore. The scene underneath is drawn but not updated.
 from __future__ import annotations
 
 import sys
+import time
 
 import pygame
 
@@ -92,8 +93,17 @@ class App:
         pygame.display.set_caption(TITLE)
         self._set_icon()
 
-        #: Everything is drawn here. The window only ever receives a scaled copy of it.
-        self.screen = pygame.Surface((GAME_W, GAME_H)).convert()
+        #: Everything is drawn here. On the desktop the window receives a scaled copy of it; in
+        #: the browser this *is* the window.
+        #:
+        #: Drawing straight to the display surface on the web removes a full-screen copy from every
+        #: frame, and removes any chance of `present` resampling a million pixels because the canvas
+        #: and the virtual surface disagree about their size. The browser scales the canvas itself,
+        #: on the GPU, for nothing.
+        if self.on_web:
+            self.screen = self.window
+        else:
+            self.screen = pygame.Surface((GAME_W, GAME_H)).convert()
 
         self.clock = pygame.time.Clock()
         self.running = True
@@ -108,6 +118,10 @@ class App:
         self.mouse = (0, 0)
         self.mouse_down = False
         self._audio_kicked = False
+        #: Per-frame timing accumulator, reported behind the F1 counter. Keys starting with an
+        #: underscore carry between frames rather than being averaged.
+        self._prof = {"pump": 0.0, "update": 0.0, "draw": 0.0, "present": 0.0,
+                      "n": 0, "steps": 0, "_present_frame": 0.0}
 
         self._layout_window()
 
@@ -297,9 +311,13 @@ class App:
         dt = min(raw, MAX_FRAME_DT)
         self.fps = self.clock.get_fps()
 
+        prof = self._prof
+        t0 = time.perf_counter()
+
         self._pump()
         if not self.running:
             return False
+        t_pump = time.perf_counter()
 
         self._advance_transition(dt)
 
@@ -315,11 +333,63 @@ class App:
             # Badly behind; drop the backlog rather than compounding it next frame.
             self.accumulator = 0.0
 
+        t_update = time.perf_counter()
+
         self._draw_stack()
+        t_draw = time.perf_counter()
+
+        # Where the frame went, behind the F1 counter. This exists because the sister project ran
+        # at 0.1 fps in a browser while measuring 3 ms a frame natively, and no amount of reasoning
+        # about it beat one set of numbers from inside.
+        prof["pump"] += t_pump - t0
+        prof["update"] += t_update - t_pump
+        prof["draw"] += t_draw - t_pump - prof["_present_frame"]
+        prof["present"] += prof["_present_frame"]
+        prof["_present_frame"] = 0.0
+        prof["steps"] += steps
+        prof["n"] += 1
+        if self.save.settings.get("show_fps") and prof["n"] >= 30:
+            n = prof["n"]
+            total = prof["pump"] + prof["update"] + prof["draw"] + prof["present"]
+            self._report(
+                f"[frame {self.frame:5d}] {1000 * total / n:6.1f}ms"
+                f"  pump {1000 * prof['pump'] / n:5.1f}"
+                f"  sim {1000 * prof['update'] / n:5.1f} ({prof['steps'] / n:.1f} steps)"
+                f"  draw {1000 * prof['draw'] / n:6.1f}"
+                f"  present {1000 * prof['present'] / n:5.1f}"
+                f"  | view {self.view.w}x{self.view.h} scale {self.view_scale:.3f}")
+            for k in prof:
+                if not k.startswith("_"):
+                    prof[k] = 0.0
+            prof["n"] = 0
+            prof["steps"] = 0
+
         self.frame += 1
         if max_frames is not None and self.frame >= max_frames:
             self.running = False
         return self.running
+
+    def _report(self, line: str) -> None:
+        """Send a diagnostic line somewhere a person can actually read it.
+
+        `print` alone is not enough on the web: pygbag routes Python's stdout into its own terminal
+        widget rather than the browser console, so a printed line is invisible to anything
+        inspecting the page. The JS bridge is the channel that demonstrably works — the save layer
+        already reaches localStorage through it — so the line goes there too, where it can be read
+        with one `getItem`.
+        """
+        print(line, flush=True)
+        if not self.on_web:
+            return
+        try:
+            import platform as _platform
+
+            store = _platform.window.localStorage
+            prev = store.getItem("neoncoil.prof") or ""
+            tail = (prev + "\n" + line).strip().split("\n")[-12:]
+            store.setItem("neoncoil.prof", "\n".join(tail))
+        except Exception:
+            pass
 
     def shutdown(self):
         self.save.flush()
@@ -376,6 +446,13 @@ class App:
 
     def present(self):
         """Scale the virtual surface into the window."""
+        _t = time.perf_counter()
+        if self.screen is self.window:
+            # The browser path: the scene was drawn straight onto the display surface, so there is
+            # nothing to copy and nothing to scale.
+            pygame.display.flip()
+            self._prof["_present_frame"] += time.perf_counter() - _t
+            return
         if self.view.size == (GAME_W, GAME_H):
             self.window.blit(self.screen, self.view.topleft)
         elif self.view_scale >= 1.0:
@@ -411,3 +488,4 @@ class App:
                 if bar.w > 0 and bar.h > 0:
                     self.window.fill((0, 0, 0), bar)
         pygame.display.flip()
+        self._prof["_present_frame"] += time.perf_counter() - _t
