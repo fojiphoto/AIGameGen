@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#1a2a1c" />
+<title>FEATHER &amp; FETCH — a duck shooting arcade</title>
+<meta name="description" content="Take the shot, Biscuit does the rest. A browser duck-shooting arcade game with five environments, seven duck types and no install." />
+
+<!--
+  No web fonts. A font request is a render-blocking round trip before the first meaningful
+  paint, and the entire game is smaller than one weight of a display face. The system stack is
+  already loaded, so text is on screen in the first frame.
+-->
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- Inline, with its styles already applied, so it paints in the first frame. -->
+<div id="boot">
+  <div class="boot-inner">
+    <div class="boot-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1>FEATHER <span>&amp;</span> FETCH</h1>
+    <p class="boot-sub">Loading the meadow</p>
+  </div>
+</div>
+
+<div id="game"></div>
+
+<div id="rotate" aria-hidden="true">
+  <div>
+    <div class="rot-icon">⟳</div>
+    <b>Turn your device</b>
+    <span>There is a lot more sky in landscape, and you will want to see it coming.</span>
+  </div>
+</div>
+
+<noscript>
+  <div class="noscript"><h1>FEATHER &amp; FETCH</h1>
+  <p>This game needs JavaScript. Enable it and reload to play.</p></div>
+</noscript>
+
+<script src="game.js" defer></script>
+</body>
+</html>

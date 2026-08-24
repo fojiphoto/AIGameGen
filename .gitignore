@@ -42,3 +42,6 @@ NeonCoil/build/web-cache/
 NeonCoil/build/version.txt
 __pycache__/
 *.pyc
+
+# FeatherFetch: the test bundle is regenerated on every run.
+FeatherFetch/build/test/

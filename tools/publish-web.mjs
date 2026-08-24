@@ -113,6 +113,19 @@ const NATIVE_EXTRAS = [
     palette: { bg: '#140b1e', bgAccent: '#2a1b40', ground: '#7ec850', player: '#ff9b4a', obstacle: '#6f7f8c', accent: '#ffd27a' },
     aspect: '16/9',
   },
+  {
+    slug: 'feather-and-fetch',
+    title: 'FEATHER & FETCH',
+    label: 'Hand-built',
+    family: 'duck shooting arcade',
+    from: join(ROOT, 'FeatherFetch', 'build', 'web'),
+    blurb: 'Aim, shoot, and let Biscuit do the fetching. Seven duck types, nine flight '
+         + 'patterns, five environments, three modes and a dog with opinions about your aim.',
+    stats: 'TypeScript + Canvas · 78 KB total · every duck proved fairly hittable by a sweep',
+    note: 'Starts instantly. Mouse or touch. Plays offline once loaded.',
+    palette: { bg: '#14210f', bgAccent: '#2a3f22', ground: '#5da84a', player: '#f0c04a', obstacle: '#8a5f36', accent: '#ffe08a' },
+    aspect: '16/9',
+  },
 ];
 
 const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
