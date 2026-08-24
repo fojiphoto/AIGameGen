@@ -365,3 +365,37 @@ html[data-portrait="1"] #rotate {
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--edge); border-radius: 99px; }
+
+/* ── Open Season ──────────────────────────────────────────────────────────── */
+
+/*
+ * The harvest button.
+ *
+ * Bottom-centre and pointer-enabled inside an otherwise inert HUD, sitting well below the
+ * shootable band so it can never be in the way of a shot. It is disabled until there is
+ * something on the ground, because a button that ends the run for nothing is a trap.
+ */
+.harvest-btn {
+  position: absolute; left: 50%; bottom: 14px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  width: auto; min-height: 42px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 224, 138, .5);
+  background: linear-gradient(180deg, var(--gold-2), var(--gold));
+  color: var(--gold-ink);
+  font: inherit; font-weight: 800; font-size: 13px; letter-spacing: .1em;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .4);
+  transition: transform 130ms ease, opacity 160ms ease, filter 130ms ease;
+}
+.harvest-btn:hover:not(:disabled) { transform: translateX(-50%) translateY(-2px); }
+.harvest-btn:disabled {
+  opacity: .32; cursor: default;
+  background: rgba(0, 0, 0, .4); color: var(--muted);
+  border-color: var(--edge); box-shadow: none;
+}
+.harvest-btn.gone { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(.9); }
+
+.infinite { font-size: 1.5em; font-weight: 800; color: var(--gold-2); line-height: 1; }

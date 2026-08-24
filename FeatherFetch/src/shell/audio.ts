@@ -15,7 +15,8 @@
 export type Sfx =
   | 'shot' | 'empty' | 'reload' | 'hit' | 'hitRare' | 'clang' | 'fall'
   | 'flap' | 'quack' | 'escape' | 'bark' | 'sniff' | 'dogRun' | 'dogTease'
-  | 'perfect' | 'roundStart' | 'gameOver' | 'button' | 'combo' | 'unlock';
+  | 'perfect' | 'roundStart' | 'gameOver' | 'button' | 'combo' | 'unlock'
+  | 'harvest' | 'scoop';
 
 /** One scale per environment, so the music changes with the place. */
 const SCALES = [
@@ -179,6 +180,18 @@ export class AudioManager {
         for (const [i, f] of [784, 988, 1319].entries()) {
           this.tone(t + i * 0.09, 'sine', f, f, 0.3, 0.2);
         }
+        break;
+      case 'harvest':
+        // A diesel cough and a horn — the machine announcing itself.
+        this.tone(t, 'sawtooth', 90, 62, 0.4, 0.34, 700);
+        this.tone(t + 0.12, 'square', 230, 210, 0.3, 0.2, 1100);
+        this.tone(t + 0.14, 'square', 175, 160, 0.3, 0.16, 1000);
+        this.hit(t, 0.2, 500, 0.3, 'lowpass', 1);
+        break;
+      case 'scoop':
+        // Short, mechanical, and pitched away from the shot so a run of them does not blur.
+        this.hit(t, 0.05, 2200, 0.28, 'bandpass', 2.2);
+        this.tone(t, 'triangle', 640, 900, 0.09, 0.18);
         break;
       case 'button':
         this.hit(t, 0.018, 3200, 0.18, 'highpass', 1);

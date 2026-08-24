@@ -11,19 +11,20 @@
 import {
   VIEW_W, SKY_BOTTOM, GROUND_Y, FIXED_DT, MAX_FRAME_TIME, SHELLS, RELOAD_SECONDS,
   HIT_PAD_MOUSE, HIT_PAD_TOUCH, HIT_STOP, HIT_STOP_RARE, MAX_MISSES,
-  DOG_RETRIEVE_SECONDS, DOG_TEASE_SECONDS,
+  DOG_RETRIEVE_SECONDS, DOG_TEASE_SECONDS, DOG_SPEED,
   DuckState, spawnDuck, stepDuck, isOffScreen,
   RoundPlan, planRound, makeRandom,
   Stats, emptyStats, awardHit, summariseRound, RoundSummary,
   resolveShot, shotQuality,
   GameMode,
 } from '../core/index.js';
-import { Env, envFor, DogPose } from '../render/art.js';
+import { Env, envFor, DogPose, HARVESTER_W, HARVESTER_H } from '../render/art.js';
 import { SpriteCache, Backdrop, Ambience, Particles, Labels, DOG_W, DOG_H } from '../render/scene.js';
 import { AudioManager } from '../shell/audio.js';
 
 export type Phase =
-  | 'roundCard' | 'ready' | 'playing' | 'waveClear' | 'retrieve' | 'roundEnd' | 'over';
+  | 'roundCard' | 'ready' | 'playing' | 'waveClear' | 'retrieve' | 'roundEnd'
+  | 'harvest' | 'over';
 
 interface ActiveDuck extends DuckState {
   /** Shells spent on this duck, for the first-shell bonus. */
@@ -35,6 +36,18 @@ interface ActiveDuck extends DuckState {
 }
 
 interface Retrieved { kind: string; colors: [string, string, string]; size: number }
+
+/** A bird lying in the grass in Open Season, waiting for the harvester. */
+interface Piled extends Retrieved { x: number; lean: number; taken: boolean }
+
+/**
+ * How far below the fence line the pile and the machine sit.
+ *
+ * Far enough into the near grass to be unmistakable, close enough that the harvester still looks
+ * like it is working the same field the ducks fell into.
+ */
+const PILE_BASELINE = 26;
+const HARVESTER_BASELINE = 34;
 
 export class Session {
   mode: GameMode;
@@ -94,8 +107,21 @@ export class Session {
     stage: 'in' as 'in' | 'search' | 'out',
   };
   private pendingRetrieve: Retrieved[] = [];
+  /** Where the last bird came down, so Biscuit runs to it instead of to a random spot. */
+  private lastFellX: number | null = null;
   quickRetrieve = false;
   bandana = '#e2503f';
+
+  /**
+   * Open Season: the pile, and the machine that clears it.
+   *
+   * In every other mode Biscuit fetches each bird as it lands. Here they stay where they fall
+   * and build up along the grass line, which is the whole point of the mode — the pile *is* the
+   * score, visible the entire time, and calling the harvester is the player deciding to cash it
+   * in. The dog gets the round off.
+   */
+  piled: Piled[] = [];
+  harvester = { active: false, x: -HARVESTER_W, phase: 0, collected: 0, done: false };
 
   constructor(mode: GameMode, seed: number, private audio: AudioManager) {
     this.mode = mode;
@@ -105,6 +131,8 @@ export class Session {
     this.env = envFor(this.plan.environment);
     this.phaseTimer = 1.5;
     if (mode === 'timeAttack') this.timeLeft = 60;
+    // Open Season has no round card to read — it starts the moment the player arrives.
+    if (mode === 'free') this.phaseTimer = 0.5;
   }
 
   get accuracy(): number {
@@ -176,12 +204,18 @@ export class Session {
         this.updateDucks(dt);
         this.updateDog(dt);
         this.phaseTimer -= dt;
-        if (this.phaseTimer <= 0 && !this.dog.active) this.afterRetrieve();
+        if (this.phaseTimer <= 0) this.afterRetrieve();
         break;
 
       case 'roundEnd':
         this.updateDucks(dt);
         this.updateDog(dt);
+        break;
+
+      case 'harvest':
+        // Ducks already in the air keep flying; the player just cannot shoot any more.
+        this.updateDucks(dt);
+        this.updateHarvester(dt);
         break;
 
       case 'over':
@@ -221,9 +255,21 @@ export class Session {
           color: this.env.grass, speed: 90, life: 0.45, size: 6, gravity: 90,
           dir: -Math.PI / 2, spread: Math.PI,
         });
-        this.pendingRetrieve.push({
+        const bird = {
           kind: duck.type.kind, colors: duck.type.colors, size: duck.type.size,
-        });
+        };
+        if (this.mode === 'free') {
+          // It stays where it fell. The pile is the mode.
+          this.piled.push({
+            ...bird,
+            x: Math.max(20, Math.min(VIEW_W - 20, duck.x)),
+            lean: (this.random() - 0.5) * 0.9,
+            taken: false,
+          });
+        } else {
+          this.lastFellX = duck.x;
+          this.pendingRetrieve.push(bird);
+        }
       }
 
       if (duck.phase === 'flying' && isOffScreen(duck)) {
@@ -290,7 +336,28 @@ export class Session {
   }
 
   private afterRetrieve(): void {
-    if (this.waveIndex >= this.plan.waves.length) { this.finishRound(); return; }
+    if (this.waveIndex >= this.plan.waves.length) {
+      /**
+       * Open Season has no rounds to finish.
+       *
+       * When the plan runs out it silently rolls to the next one — same difficulty ramp, no
+       * round card, no results screen. The run ends when the player calls the harvester and not
+       * before, which is the whole promise of the mode.
+       */
+      if (this.mode === 'free') { this.rollNextPlan(); return; }
+      this.finishRound();
+      return;
+    }
+    this.phase = 'playing';
+    this.startWave();
+  }
+
+  /** Advance the difficulty without interrupting anything. Open Season only. */
+  private rollNextPlan(): void {
+    this.round++;
+    this.plan = planRound(this.round, this.seed);
+    this.waveIndex = 0;
+    this.released = 0;
     this.phase = 'playing';
     this.startWave();
   }
@@ -364,6 +431,7 @@ export class Session {
    */
   shoot(x: number, y: number, touch: boolean): void {
     if (this.phase !== 'playing') return;
+    if (this.harvester.active) return;      // the machine is out; the shooting is over
     this.aimAt(x, y, touch);
 
     if (this.reload > 0 || this.shells <= 0) {
@@ -373,7 +441,8 @@ export class Session {
       return;
     }
 
-    this.shells--;
+    // Open Season is about volume, not conservation: the barrel never runs dry.
+    if (this.mode !== 'free') this.shells--;
     this.stats.shotsFired++;
     this.shotsThisRound++;
     this.audio.play('shot');
@@ -461,13 +530,23 @@ export class Session {
 
   private startRetrieve(): void {
     this.phase = 'retrieve';
-    const duration = this.quickRetrieve ? DOG_RETRIEVE_SECONDS * 0.55 : DOG_RETRIEVE_SECONDS;
-    this.phaseTimer = duration + 0.15;
+    /**
+     * The whole trip is one second, and the *round* only waits for the grab.
+     *
+     * `phaseTimer` is the pause the player actually feels, and it is deliberately shorter than
+     * the dog's animation: he keeps trotting off screen during the next wave. Waiting for him to
+     * finish leaving was what made every duck cost two seconds of watching a dog.
+     */
+    const duration = this.quickRetrieve ? DOG_RETRIEVE_SECONDS * 0.6 : DOG_RETRIEVE_SECONDS;
+    this.phaseTimer = duration * 0.62;
     this.dog.active = true;
     this.dog.stage = 'in';
     this.dog.pose = 'run1';
     this.dog.x = -DOG_W;
-    this.dog.targetX = VIEW_W * (0.35 + this.random() * 0.3);
+    // He runs to roughly where the bird came down rather than to a random spot, which reads as
+    // fetching rather than as patrolling — and keeps the run short.
+    const fell = this.lastFellX ?? VIEW_W * 0.5;
+    this.dog.targetX = Math.max(VIEW_W * 0.16, Math.min(VIEW_W * 0.72, fell));
     this.dog.timer = duration;
     this.dog.carrying = null;
     this.audio.play('dogRun');
@@ -475,7 +554,7 @@ export class Session {
 
   private startTease(): void {
     this.phase = 'retrieve';
-    this.phaseTimer = DOG_TEASE_SECONDS + 0.1;
+    this.phaseTimer = DOG_TEASE_SECONDS * 0.7;
     this.dog.active = true;
     this.dog.stage = 'search';
     // Four reactions, chosen at random, so the joke does not wear out in one session.
@@ -505,7 +584,7 @@ export class Session {
     dog.phase += dt;
     dog.timer -= dt;
 
-    const speed = this.quickRetrieve ? 460 : 320;
+    const speed = this.quickRetrieve ? DOG_SPEED * 1.3 : DOG_SPEED;
 
     if (dog.stage === 'in') {
       dog.x += speed * dt;
@@ -514,7 +593,7 @@ export class Session {
       dog.y = GROUND_Y - 6 - Math.abs(Math.sin(dog.phase * 9)) * 5;
       if (dog.x >= dog.targetX) {
         dog.stage = 'search';
-        dog.timer = this.quickRetrieve ? 0.3 : 0.55;
+        dog.timer = this.quickRetrieve ? 0.1 : 0.16;
         dog.pose = 'sniff';
         this.audio.play('sniff');
       }
@@ -535,14 +614,14 @@ export class Session {
         }
         dog.stage = 'out';
         dog.timer = 2;
-      } else if (dog.pose === 'sniff' && dog.timer < (this.quickRetrieve ? 0.15 : 0.25)) {
+      } else if (dog.pose === 'sniff' && dog.timer < (this.quickRetrieve ? 0.05 : 0.08)) {
         dog.pose = 'found';
       }
       return;
     }
 
     // Out: trot off the right edge, holding the duck up.
-    dog.x += speed * 0.9 * dt;
+    dog.x += speed * 1.15 * dt;
     dog.y = GROUND_Y - 6 - Math.abs(Math.sin(dog.phase * 8)) * 4;
     if (dog.carrying) dog.pose = 'proud';
     else dog.pose = Math.floor(dog.phase * 9) % 2 === 0 ? 'run1' : 'run2';
@@ -553,6 +632,75 @@ export class Session {
       dog.x = -DOG_W;
       // More birds down than one trip can carry: go again.
       if (this.pendingRetrieve.length > 0) this.startRetrieve();
+    }
+  }
+
+  // ── the harvester ─────────────────────────────────────────────────────────
+
+  /** Can the player call it in? Only in Open Season, only with something to collect. */
+  get canHarvest(): boolean {
+    return this.mode === 'free' && !this.harvester.active
+      && this.phase !== 'over' && this.piled.length > 0;
+  }
+
+  get pileCount(): number { return this.piled.filter((p) => !p.taken).length; }
+
+  /**
+   * Call the harvester in.
+   *
+   * This is the player choosing to end the run, so it is deliberately theatrical: the machine
+   * drives the whole width of the screen, scoops every bird it passes with a puff and a score
+   * tick, and the tally lands only when it has driven off the far side. A button that simply cut
+   * to a results panel would end the mode with a whimper.
+   */
+  callHarvester(): void {
+    if (!this.canHarvest) return;
+    this.phase = 'harvest';
+    this.harvester.active = true;
+    this.harvester.x = -HARVESTER_W;
+    this.harvester.phase = 0;
+    this.harvester.collected = 0;
+    this.harvester.done = false;
+    this.audio.play('harvest');
+    this.labels.add(VIEW_W / 2, 150, 'HARVEST!', '#ffe08a', true);
+  }
+
+  private updateHarvester(dt: number): void {
+    const h = this.harvester;
+    if (!h.active) return;
+    h.phase += dt;
+
+    // Fast enough that the collection run is a flourish rather than a wait: the full width in
+    // about three seconds, however many birds are down.
+    h.x += 330 * dt;
+
+    // The scoop is at the machine's front; anything it reaches goes in.
+    const mouth = h.x + HARVESTER_W * 0.1;
+    for (const bird of this.piled) {
+      if (bird.taken || bird.x > mouth) continue;
+      bird.taken = true;
+      h.collected++;
+
+      // Each bird is worth its own value again on collection — the pile is a bank, and cashing
+      // it in is what the mode builds toward.
+      const worth = 60 + Math.round(bird.size * 3);
+      this.stats.score += worth;
+      this.labels.add(bird.x, GROUND_Y - 34, `+${worth}`, '#ffe08a');
+      this.particles.emit('feather', bird.x, GROUND_Y - 12, 5, {
+        color: bird.colors[0], speed: 130, life: 0.9, size: 6, gravity: 140,
+      });
+      this.particles.emit('puff', bird.x, GROUND_Y - 8, 5, {
+        color: this.env.grass, speed: 90, life: 0.4, size: 6, gravity: 100,
+        dir: -Math.PI / 2, spread: Math.PI,
+      });
+      this.audio.play('scoop');
+      if (this.shakeEnabled) this.shake = Math.max(this.shake, 0.3);
+    }
+
+    if (h.x > VIEW_W + HARVESTER_W * 0.4 && !h.done) {
+      h.done = true;
+      h.active = false;
+      this.endGame();
     }
   }
 
@@ -604,6 +752,17 @@ export class Session {
 
     this.drawDog(ctx, cache);
     backdrop.drawGround(ctx);
+    /**
+     * The pile and the machine live in *front* of the fence, not behind it.
+     *
+     * Drawn after the ground strip on purpose. The first version put them before it, and the
+     * fence rails swallowed both — eight birds on the ground with nothing visible, and a
+     * harvester that read as a floating orange box with no wheels. Biscuit stays behind, which
+     * gives the scene a bit of depth for free: the dog works the fence line, the machine works
+     * the near grass.
+     */
+    this.drawPile(ctx, cache);
+    this.drawHarvester(ctx, cache);
     this.particles.draw(ctx, cache);
     this.labels.draw(ctx);
 
@@ -617,6 +776,35 @@ export class Session {
     if (duck.vy > duck.speed * 0.5) return 'glide';
     const frame = Math.floor(duck.flap * (duck.fleeing ? 1.7 : 1)) % 4;
     return (['up', 'mid', 'down', 'mid'] as const)[frame];
+  }
+
+  /**
+   * The pile of birds along the grass line.
+   *
+   * Drawn *before* the ground strip so they sit half-buried in the grass rather than on top of
+   * it, which is what makes the meadow fill up rather than acquire a row of stickers. Each one
+   * leans a different way, and they are drawn shortest-first so a big bird never hides a small
+   * one behind it.
+   */
+  private drawPile(ctx: CanvasRenderingContext2D, cache: SpriteCache): void {
+    if (this.piled.length === 0) return;
+    const sorted = [...this.piled].filter((b) => !b.taken).sort((a, b) => b.size - a.size);
+    for (const bird of sorted) {
+      const s = bird.size * 0.82;
+      const sprite = cache.duck(bird.kind, 'fall', Math.round(s), bird.colors, false);
+      ctx.save();
+      ctx.translate(bird.x, GROUND_Y + PILE_BASELINE);
+      ctx.rotate(bird.lean);
+      ctx.drawImage(sprite, -s / 2, -s * 0.5, s, s * 0.78);
+      ctx.restore();
+    }
+  }
+
+  private drawHarvester(ctx: CanvasRenderingContext2D, cache: SpriteCache): void {
+    const h = this.harvester;
+    if (!h.active) return;
+    const sprite = cache.harvester(Math.floor(h.phase * 12) % 8, '#e2503f');
+    ctx.drawImage(sprite, Math.round(h.x), Math.round(GROUND_Y + HARVESTER_BASELINE - HARVESTER_H));
   }
 
   private drawDog(ctx: CanvasRenderingContext2D, cache: SpriteCache): void {

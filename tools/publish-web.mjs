@@ -120,8 +120,9 @@ const NATIVE_EXTRAS = [
     family: 'duck shooting arcade',
     from: join(ROOT, 'FeatherFetch', 'build', 'web'),
     blurb: 'Aim, shoot, and let Biscuit do the fetching. Seven duck types, nine flight '
-         + 'patterns, five environments, three modes and a dog with opinions about your aim.',
-    stats: 'TypeScript + Canvas · 78 KB total · every duck proved fairly hittable by a sweep',
+         + 'patterns, five environments and four modes — including Open Season, where the birds '
+         + 'pile up in the grass until you call the harvester in.',
+    stats: 'TypeScript + Canvas · 85 KB total · every duck proved fairly hittable by a sweep',
     note: 'Starts instantly. Mouse or touch. Plays offline once loaded.',
     palette: { bg: '#14210f', bgAccent: '#2a3f22', ground: '#5da84a', player: '#f0c04a', obstacle: '#8a5f36', accent: '#ffe08a' },
     aspect: '16/9',

@@ -364,6 +364,8 @@ export class App {
         ['classic', 'Classic Hunt', 'Round after round. Three shells a wave, ducks get faster.'],
         ['timeAttack', 'Time Attack', 'Sixty seconds. Hit as many as you can.'],
         ['survival', 'Survival', 'Three escapes and the hunt is over.'],
+        ['free', 'Open Season', 'Endless ducks, endless shells. They pile up where they fall — '
+          + 'call the harvester when you have had enough.'],
       ];
       for (const [id, name, blurb] of modes) {
         const card = el('button', 'mode-card');
@@ -588,6 +590,22 @@ export class App {
     const pause = this.button('❚❚', () => this.togglePause(), 'hud-pause');
     bar.querySelector('.right')!.append(pause);
     this.hud.append(bar);
+
+    /**
+     * Open Season's one button.
+     *
+     * Bottom-centre, well clear of the sky, and only ever present in this mode. It is the
+     * player's own decision to end the run, so it says what it will do and how much is riding on
+     * it rather than being an anonymous "finish".
+     */
+    if (this.mode === 'free') {
+      const harvest = this.button('CALL THE HARVESTER', () => {
+        this.session?.callHarvester();
+        harvest.classList.add('gone');
+      }, 'harvest-btn');
+      harvest.disabled = true;
+      this.hud.append(harvest);
+    }
     this.hud.append(el('div', 'banner'));
     this.hud.append(el('div', 'tutorial'));
   }
@@ -613,24 +631,45 @@ export class App {
         ? `${Math.ceil(s.timeLeft)}s`
         : this.mode === 'survival'
           ? `${'●'.repeat(Math.max(0, 3 - s.misses))}${'○'.repeat(Math.min(3, s.misses))}`
-          : `ROUND ${s.round}`;
+          : this.mode === 'free'
+            ? 'OPEN SEASON'
+            : `ROUND ${s.round}`;
     }
 
     const ducks = this.hud.querySelector('.ducks');
-    if (ducks) ducks.textContent = `${s.plan.duckCount - s.released + s.aliveCount} left`;
+    if (ducks) {
+      // In Open Season the number that matters is what is on the ground, not what is left to
+      // come — there is no "left".
+      ducks.textContent = this.mode === 'free'
+        ? `${s.pileCount} on the ground`
+        : `${s.plan.duckCount - s.released + s.aliveCount} left`;
+    }
 
     // Shells as icons, not a number — it reads at a glance in peripheral vision, which is where
     // it is actually being read from.
     const shells = this.hud.querySelector('.shells');
     if (shells) {
-      shells.innerHTML = Array.from({ length: SHELLS }, (_, i) =>
-        `<i class="shell${i < s.shells ? ' on' : ''}${s.reloading ? ' reloading' : ''}"></i>`).join('');
+      shells.innerHTML = this.mode === 'free'
+        ? '<span class="infinite">∞</span>'
+        : Array.from({ length: SHELLS }, (_, i) =>
+          `<i class="shell${i < s.shells ? ' on' : ''}${s.reloading ? ' reloading' : ''}"></i>`).join('');
+    }
+
+    const harvest = this.hud.querySelector('.harvest-btn') as HTMLButtonElement | null;
+    if (harvest) {
+      harvest.disabled = !s.canHarvest;
+      harvest.textContent = s.pileCount > 0
+        ? `CALL THE HARVESTER · ${s.pileCount}`
+        : 'CALL THE HARVESTER';
     }
 
     const banner = this.hud.querySelector('.banner');
     if (banner) {
       let text = '';
-      if (s.phase === 'roundCard') text = this.mode === 'classic' ? `ROUND ${s.round}` : 'READY';
+      if (s.phase === 'roundCard') {
+        text = this.mode === 'classic' ? `ROUND ${s.round}`
+          : this.mode === 'free' ? 'OPEN SEASON' : 'READY';
+      }
       else if (s.phase === 'ready') text = 'READY?';
       banner.textContent = text;
       banner.classList.toggle('on', text.length > 0);
@@ -748,7 +787,7 @@ export class App {
 
     const wrap = el('div', 'panel overlay gameover');
     wrap.innerHTML =
-      `<h2>HUNT COMPLETE</h2>`
+      `<h2>${this.mode === 'free' ? 'HARVEST COMPLETE' : 'HUNT COMPLETE'}</h2>`
       + `<p class="total big">${run.score.toLocaleString()}</p>`
       + (newHigh ? '<p class="new">New personal best</p>' : '')
       + `<div class="result-grid">`
@@ -756,7 +795,9 @@ export class App {
       + `<div><b>${pct(accuracyOf(run))}</b><small>accuracy</small></div>`
       + `<div><b>×${run.bestCombo}</b><small>best streak</small></div>`
       + `<div><b>${run.rareDucks}</b><small>rare ducks</small></div>`
-      + `<div><b>${run.perfectRounds}</b><small>perfect rounds</small></div>`
+      + (this.mode === 'free'
+        ? `<div><b>${s.harvester.collected}</b><small>harvested</small></div>`
+        : `<div><b>${run.perfectRounds}</b><small>perfect rounds</small></div>`)
       + `<div><b>${this.save.data.best[this.mode].toLocaleString()}</b><small>best</small></div>`
       + `</div>`
       + (earned.length

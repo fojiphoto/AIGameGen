@@ -27,6 +27,7 @@ import {
   awardHit, summariseRound, emptyStats, accuracyOf, emptyTotals,
   ACHIEVEMENTS, newlyEarned, DOG_SKINS, WEAPON_SKINS, cosmeticUnlocked, cosmeticHint,
   SaveManager, defaultSave, DEFAULT_SETTINGS,
+  DOG_RETRIEVE_SECONDS, DOG_SPEED, DOG_TEASE_SECONDS,
 } from '../build/test/core.mjs';
 
 // ── the fairness sweep ──────────────────────────────────────────────────────
@@ -509,4 +510,63 @@ test('the default save is self-consistent', () => {
   assert.equal(save.best.classic, 0);
   assert.ok(VIEW_W > VIEW_H, 'the game is landscape');
   assert.ok(SKY_BOTTOM < VIEW_H, 'the shootable band leaves room for the ground');
+});
+
+
+// ── the dog's pace ──────────────────────────────────────────────────────────
+
+/**
+ * The retrieval has a hard budget.
+ *
+ * Qasim's note after playing the first build was that the dog broke the flow — every duck cost
+ * roughly two seconds of watching an animation. These two checks encode the fix so a future
+ * tweak to "make Biscuit more expressive" cannot quietly hand the delay back: the whole trip is
+ * about a second, and the machine is fast enough to cross the screen inside it.
+ */
+test('the retrieval is about a second, not a cut-scene', () => {
+  assert.ok(DOG_RETRIEVE_SECONDS <= 1.1,
+    `retrieval is ${DOG_RETRIEVE_SECONDS}s — the shooting is the game, not the dog`);
+  assert.ok(DOG_TEASE_SECONDS <= DOG_RETRIEVE_SECONDS,
+    'the miss reaction must not last longer than a successful fetch');
+});
+
+test('the dog is fast enough to cross the field inside its window', () => {
+  // He enters off the left edge and has to reach the middle, grab, and be leaving before the
+  // player is waiting on him.
+  const reach = DOG_SPEED * (DOG_RETRIEVE_SECONDS * 0.5);
+  assert.ok(reach >= VIEW_W * 0.45,
+    `only covers ${Math.round(reach)}px of a ${VIEW_W}px field in half the window`);
+});
+
+// ── Open Season ─────────────────────────────────────────────────────────────
+
+test('every mode has its own best-score slot, including Open Season', () => {
+  const save = defaultSave();
+  for (const mode of ['classic', 'timeAttack', 'survival', 'free']) {
+    assert.equal(save.best[mode], 0, `${mode} has no slot`);
+  }
+});
+
+test('Open Season records a high score of its own', () => {
+  globalThis.localStorage = fakeStorage();
+  const save = new SaveManager();
+  save.recordRun('free', {
+    score: 25_000, ducksHit: 60, ducksEscaped: 10, shotsFired: 90, shotsHit: 60,
+    bestCombo: 12, perfectRounds: 0, rareDucks: 5, roundsCleared: 0, playMs: 120_000,
+  });
+  assert.equal(save.data.best.free, 25_000);
+  assert.equal(save.data.best.classic, 0, 'and does not leak into another mode');
+  assert.equal(new SaveManager().data.best.free, 25_000);
+});
+
+test('an unknown mode in a save file does not corrupt the known ones', () => {
+  const storage = fakeStorage();
+  globalThis.localStorage = storage;
+  storage.setItem('featherfetch.save', JSON.stringify({
+    version: 1, best: { classic: 900, free: 'lots', nonsense: 5 },
+  }));
+  const save = new SaveManager();
+  assert.equal(save.data.best.classic, 900);
+  assert.equal(save.data.best.free, 0, 'a string score is dropped');
+  assert.equal(save.data.best.nonsense, undefined, 'and an unknown mode is not carried over');
 });

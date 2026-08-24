@@ -15,7 +15,7 @@ import {
 const KEY = 'featherfetch.save';
 const VERSION = 1;
 
-export type GameMode = 'classic' | 'timeAttack' | 'survival';
+export type GameMode = 'classic' | 'timeAttack' | 'survival' | 'free';
 
 export interface Settings {
   sfx: boolean;
@@ -49,7 +49,7 @@ export interface SaveData {
 export const defaultSave = (): SaveData => ({
   version: VERSION,
   totals: emptyTotals(),
-  best: { classic: 0, timeAttack: 0, survival: 0 },
+  best: { classic: 0, timeAttack: 0, survival: 0, free: 0 },
   achievements: [],
   settings: { ...DEFAULT_SETTINGS },
 });
@@ -101,7 +101,7 @@ export class SaveManager {
     }
 
     if (stored.best && typeof stored.best === 'object') {
-      for (const mode of ['classic', 'timeAttack', 'survival'] as GameMode[]) {
+      for (const mode of ['classic', 'timeAttack', 'survival', 'free'] as GameMode[]) {
         out.best[mode] = num((stored.best as Record<string, unknown>)[mode], 0);
       }
     }

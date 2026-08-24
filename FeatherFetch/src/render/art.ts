@@ -680,3 +680,156 @@ export function drawFeather(
   ctx.stroke();
   ctx.restore();
 }
+
+// ── the harvester ───────────────────────────────────────────────────────────
+
+export const HARVESTER_W = 190;
+export const HARVESTER_H = 118;
+
+/**
+ * The harvester, for Open Season's collection run.
+ *
+ * An original cartoon farm machine rather than any real vehicle: a stubby body, an offset cab
+ * with a chimney, one big rear wheel and one small front one, and a wide scoop on the front with
+ * a rotating reel above it. The reel is the part that sells it — it is what makes the machine
+ * read as *gathering* rather than as driving past, and it is one rotating shape.
+ *
+ * Drawn facing right, with the wheels on the baseline so it sits on the same ground line the dog
+ * runs along.
+ */
+export function drawHarvester(
+  ctx: CanvasRenderingContext2D, phase: number, accent: string
+): void {
+  const w = HARVESTER_W;
+  const h = HARVESTER_H;
+  const body = '#d9a13a';
+  const dark = shade(body, -0.28);
+  const metal = '#6b7280';
+  const outline = 'rgba(34, 22, 12, 0.9)';
+
+  ctx.save();
+  ctx.translate(0, h);
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = outline;
+
+  // Shadow.
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, -3, w * 0.44, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // A bouncing chassis, so the machine looks like it is working rather than gliding.
+  const bounce = Math.sin(phase * 9) * 1.6;
+  ctx.translate(0, bounce);
+
+  // Rear wheel — big, with spokes that turn.
+  const wheel = (cx: number, r: number, spokes: number) => {
+    ctx.fillStyle = '#2f333a';
+    ctx.beginPath();
+    ctx.arc(cx, -r, r, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = shade(metal, 0.2);
+    ctx.beginPath();
+    ctx.arc(cx, -r, r * 0.42, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#3d4048';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < spokes; i++) {
+      const a = phase * 6 + (i / spokes) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r * 0.45, -r + Math.sin(a) * r * 0.45);
+      ctx.lineTo(cx + Math.cos(a) * r * 0.92, -r + Math.sin(a) * r * 0.92);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 2.2;
+  };
+
+  wheel(w * 0.3, 30, 7);
+
+  // Body.
+  const grad = ctx.createLinearGradient(0, -h, 0, -20);
+  grad.addColorStop(0, shade(body, 0.2));
+  grad.addColorStop(1, dark);
+  ctx.fillStyle = grad;
+  roundRect(ctx, w * 0.16, -h * 0.66, w * 0.62, h * 0.42, 9);
+  ctx.fill(); ctx.stroke();
+
+  // A stripe in the player's accent colour, which ties the machine to the game's palette.
+  ctx.fillStyle = accent;
+  roundRect(ctx, w * 0.19, -h * 0.5, w * 0.56, 8, 3);
+  ctx.fill();
+
+  // Cab.
+  ctx.fillStyle = grad;
+  roundRect(ctx, w * 0.5, -h * 0.98, w * 0.26, h * 0.36, 7);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(190, 232, 255, 0.85)';
+  roundRect(ctx, w * 0.535, -h * 0.94, w * 0.19, h * 0.2, 4);
+  ctx.fill(); ctx.stroke();
+
+  // Chimney, with a puff of smoke on the beat.
+  ctx.fillStyle = metal;
+  roundRect(ctx, w * 0.44, -h * 1.02, 11, h * 0.3, 3);
+  ctx.fill(); ctx.stroke();
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = '#e8e8e8';
+  for (let i = 0; i < 3; i++) {
+    const t = (phase * 1.6 + i * 0.33) % 1;
+    ctx.beginPath();
+    ctx.arc(w * 0.455 + t * 16, -h * 1.05 - t * 34, 5 + t * 9, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Front wheel — small.
+  wheel(w * 0.72, 19, 6);
+
+  // The scoop, on the front, with a reel turning above it.
+  ctx.fillStyle = shade(metal, 0.12);
+  ctx.beginPath();
+  ctx.moveTo(w * 0.16, -h * 0.24);
+  ctx.lineTo(w * 0.02, -h * 0.3);
+  ctx.lineTo(-w * 0.03, -6);
+  ctx.lineTo(w * 0.16, -6);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+
+  // Teeth along the scoop's lip.
+  ctx.fillStyle = shade(metal, 0.34);
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.028 + i * 8, -6);
+    ctx.lineTo(-w * 0.045 + i * 8, -1);
+    ctx.lineTo(-w * 0.006 + i * 8, -1);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // The reel: four paddles on a hub, turning forward.
+  ctx.save();
+  ctx.translate(w * 0.06, -h * 0.42);
+  ctx.rotate(-phase * 7);
+  ctx.strokeStyle = shade(metal, 0.3);
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * 22, Math.sin(a) * 22);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.fillStyle = dark;
+  ctx.beginPath();
+  ctx.arc(w * 0.06, -h * 0.42, 6, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  ctx.restore();
+}

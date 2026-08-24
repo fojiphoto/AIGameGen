@@ -19,6 +19,7 @@ import { VIEW_W, VIEW_H, SKY_TOP, SKY_BOTTOM, GROUND_Y } from '../core/index.js'
 import {
   Env, makeCanvas, shade, roundRect,
   drawDuck, DuckPose, drawDog, DogPose, drawFeather, drawShell, DOG_W, DOG_H,
+  drawHarvester, HARVESTER_W, HARVESTER_H,
 } from './art.js';
 
 export class SpriteCache {
@@ -61,6 +62,11 @@ export class SpriteCache {
   feather(size: number, color: string, angleStep: number): HTMLCanvasElement {
     return this.bake(`feather:${size}:${color}:${angleStep}`, size, size,
       (ctx) => drawFeather(ctx, size, color, (angleStep / 8) * Math.PI * 2));
+  }
+
+  harvester(phaseStep: number, accent: string): HTMLCanvasElement {
+    return this.bake(`harv:${phaseStep}:${accent}`, HARVESTER_W, HARVESTER_H + 4,
+      (ctx) => drawHarvester(ctx, phaseStep * 0.16, accent));
   }
 
   shell(loaded: boolean): HTMLCanvasElement {
@@ -518,4 +524,4 @@ export class Labels {
   clear(): void { this.items = []; }
 }
 
-export { DOG_W, DOG_H };
+export { DOG_W, DOG_H, HARVESTER_W, HARVESTER_H };

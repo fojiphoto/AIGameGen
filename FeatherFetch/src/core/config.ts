@@ -120,11 +120,18 @@ export const UNUSED_SHELL_BONUS = 75;
 /**
  * How long the retrieval takes.
  *
- * Short on purpose. The dog is the charm of the game and also the thing standing between the
- * player and the next duck, so the whole sequence is under two seconds and can be cut in half
- * from settings once someone has seen it enough times.
+ * One second, flat — and the next wave does not wait for it.
+ *
+ * The first version ran 1.85s and *blocked* the round until Biscuit was off the screen, which
+ * meant every duck cost the player two seconds of watching a dog. That is the wrong trade: the
+ * dog is the charm of the game but the shooting is the game, and charm that interrupts the loop
+ * stops being charm by the third round. He now sprints in, grabs it and is gone in about a
+ * second, and play resumes the instant he has the bird rather than when he has finished leaving.
  */
-export const DOG_RETRIEVE_SECONDS = 1.85;
-export const DOG_TEASE_SECONDS = 1.5;
+export const DOG_RETRIEVE_SECONDS = 1.0;
+export const DOG_TEASE_SECONDS = 0.8;
+
+/** Pixels per second. Fast enough to cross half the screen inside the retrieval window. */
+export const DOG_SPEED = 980;
 
 export const MAX_MISSES = 3;
