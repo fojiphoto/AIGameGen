@@ -120,18 +120,43 @@ export const UNUSED_SHELL_BONUS = 75;
 /**
  * How long the retrieval takes.
  *
- * One second, flat — and the next wave does not wait for it.
+ * Half a second — and the next wave does not wait for even that.
  *
  * The first version ran 1.85s and *blocked* the round until Biscuit was off the screen, which
  * meant every duck cost the player two seconds of watching a dog. That is the wrong trade: the
  * dog is the charm of the game but the shooting is the game, and charm that interrupts the loop
- * stops being charm by the third round. He now sprints in, grabs it and is gone in about a
- * second, and play resumes the instant he has the bird rather than when he has finished leaving.
+ * stops being charm by the third round.
+ *
+ * So he stopped being a dog that runs and became a dog that *blurs* — in, grab, gone, with a
+ * light trail where he was. Speed this far past plausible is the joke rather than a compromise,
+ * and it is the only version where the fetch never costs the player a beat.
  */
-export const DOG_RETRIEVE_SECONDS = 1.0;
-export const DOG_TEASE_SECONDS = 0.8;
+export const DOG_RETRIEVE_SECONDS = 0.55;
+/**
+ * How long he stands there laughing at a miss.
+ *
+ * Shorter than the fetch, which is the rule: being mocked has to cost less than being served.
+ */
+export const DOG_TEASE_SECONDS = 0.5;
 
-/** Pixels per second. Fast enough to cross half the screen inside the retrieval window. */
-export const DOG_SPEED = 980;
+/**
+ * Pixels per second. He crosses the whole screen in under half a second.
+ *
+ * At this speed a normal sprite reads as a teleport rather than as a run, which is why the trail
+ * below is not decoration — the afterimages are what make the motion legible at all.
+ */
+export const DOG_SPEED = 2450;
+
+/**
+ * The trail, in three numbers that have to agree with each other.
+ *
+ * Spacing is by distance travelled, not by time, so the trail stays evenly spaced whatever the
+ * frame rate. That makes the count of afterimages alive at once a fixed quantity —
+ * `speed * seconds / step` — and the cap has to sit *above* it, or the oldest images get thrown
+ * away while still visible and the trail ends in a hard edge instead of fading out.
+ */
+export const DOG_TRAIL_SECONDS = 0.16;
+export const DOG_TRAIL_MAX = 12;
+export const DOG_TRAIL_STEP = 42;
 
 export const MAX_MISSES = 3;

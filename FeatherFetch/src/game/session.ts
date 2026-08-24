@@ -12,6 +12,7 @@ import {
   VIEW_W, SKY_BOTTOM, GROUND_Y, FIXED_DT, MAX_FRAME_TIME, SHELLS, RELOAD_SECONDS,
   HIT_PAD_MOUSE, HIT_PAD_TOUCH, HIT_STOP, HIT_STOP_RARE, MAX_MISSES,
   DOG_RETRIEVE_SECONDS, DOG_TEASE_SECONDS, DOG_SPEED,
+  DOG_TRAIL_SECONDS, DOG_TRAIL_MAX, DOG_TRAIL_STEP,
   DuckState, spawnDuck, stepDuck, isOffScreen,
   RoundPlan, planRound, makeRandom,
   Stats, emptyStats, awardHit, summariseRound, RoundSummary,
@@ -100,11 +101,24 @@ export class Session {
   private seed: number;
   private elapsed = 0;
 
-  /** The dog. */
+  /**
+   * The dog.
+   *
+   * `trail` is the row of afterimages he leaves behind. It is part of the *state* rather than a
+   * render flourish because it has to be sampled at the fixed timestep: at 2450 px/s a trail
+   * sampled per drawn frame would be spaced by the frame rate, so the same sprint would look
+   * different on a 60 Hz screen than on a 120 Hz one.
+   */
   private dog = {
     x: -120, y: GROUND_Y - 6, pose: 'idle' as DogPose, timer: 0,
     active: false, carrying: null as Retrieved | null, phase: 0, targetX: 0,
     stage: 'in' as 'in' | 'search' | 'out',
+    /** True while he is at speed, which is what turns the streaks on. */
+    blur: false,
+    /** Set when this trip is a miss reaction: the pose he strikes on arrival. */
+    teaseAs: null as DogPose | null,
+    trail: [] as { x: number; y: number; pose: DogPose; step: number; life: number }[],
+    lastTrailX: 0,
   };
   private pendingRetrieve: Retrieved[] = [];
   /** Where the last bird came down, so Biscuit runs to it instead of to a random spot. */
@@ -549,22 +563,36 @@ export class Session {
     this.dog.targetX = Math.max(VIEW_W * 0.16, Math.min(VIEW_W * 0.72, fell));
     this.dog.timer = duration;
     this.dog.carrying = null;
-    this.audio.play('dogRun');
+    this.dog.blur = true;
+    this.dog.teaseAs = null;
+    this.dog.lastTrailX = this.dog.x;
+    this.audio.play('zip');
   }
 
+  /**
+   * The miss reaction, which now takes the same route in as a fetch.
+   *
+   * It used to simply appear mid-field. Next to a dog who arrives at 2450 px/s that reads as a
+   * bug rather than as a joke — so he skids in on the same trail, strikes the pose, and is
+   * gone. The player waits only for the pose.
+   */
   private startTease(): void {
     this.phase = 'retrieve';
     this.phaseTimer = DOG_TEASE_SECONDS * 0.7;
     this.dog.active = true;
-    this.dog.stage = 'search';
-    // Four reactions, chosen at random, so the joke does not wear out in one session.
-    const reactions: DogPose[] = ['tease', 'confused', 'tease', 'sniff'];
-    this.dog.pose = reactions[Math.floor(this.random() * reactions.length)];
-    this.dog.x = VIEW_W * (0.4 + this.random() * 0.2);
+    this.dog.stage = 'in';
+    this.dog.pose = 'run1';
+    this.dog.x = -DOG_W;
+    this.dog.targetX = VIEW_W * (0.4 + this.random() * 0.2);
     this.dog.y = GROUND_Y - 6;
     this.dog.timer = DOG_TEASE_SECONDS;
     this.dog.carrying = null;
-    this.audio.play('dogTease');
+    this.dog.blur = true;
+    this.dog.lastTrailX = this.dog.x;
+    // Four reactions, chosen at random, so the joke does not wear out in one session.
+    const reactions: DogPose[] = ['tease', 'confused', 'tease', 'sniff'];
+    this.dog.teaseAs = reactions[Math.floor(this.random() * reactions.length)];
+    this.audio.play('zip');
   }
 
   /**
@@ -576,6 +604,14 @@ export class Session {
    */
   private updateDog(dt: number): void {
     const dog = this.dog;
+
+    // The trail is aged first and unconditionally: it has to keep fading after he has gone,
+    // otherwise the last few afterimages hang frozen in the grass for the rest of the round.
+    if (dog.trail.length > 0) {
+      for (const t of dog.trail) t.life -= dt;
+      if (dog.trail[0].life <= 0) dog.trail = dog.trail.filter((t) => t.life > 0);
+    }
+
     if (!dog.active) {
       // Idle in the grass between rounds, occasionally sniffing about.
       dog.phase += dt;
@@ -588,14 +624,30 @@ export class Session {
 
     if (dog.stage === 'in') {
       dog.x += speed * dt;
-      dog.pose = Math.floor(dog.phase * 9) % 2 === 0 ? 'run1' : 'run2';
+      dog.pose = Math.floor(dog.phase * 22) % 2 === 0 ? 'run1' : 'run2';
       // A little bounce, so the run does not slide.
-      dog.y = GROUND_Y - 6 - Math.abs(Math.sin(dog.phase * 9)) * 5;
+      dog.y = GROUND_Y - 6 - Math.abs(Math.sin(dog.phase * 22)) * 5;
+      this.sampleTrail();
       if (dog.x >= dog.targetX) {
+        dog.x = dog.targetX;
         dog.stage = 'search';
-        dog.timer = this.quickRetrieve ? 0.1 : 0.16;
-        dog.pose = 'sniff';
-        this.audio.play('sniff');
+        dog.timer = dog.teaseAs ? DOG_TEASE_SECONDS : (this.quickRetrieve ? 0.07 : 0.11);
+        dog.pose = dog.teaseAs ?? 'found';
+        dog.blur = false;
+        this.audio.play(dog.teaseAs ? 'dogTease' : 'sniff');
+        // Arriving from that speed has to *land*: a shockwave ring, sparks thrown backwards
+        // along the line he came in on, and grass kicked up where he stopped.
+        this.particles.emit('ring', dog.x, GROUND_Y - 12, 1, {
+          color: '#ffe08a', speed: 0, life: 0.32, size: 26, gravity: 0,
+        });
+        this.particles.emit('spark', dog.x - 10, GROUND_Y - 14, 9, {
+          color: '#fff3cf', speed: 320, life: 0.26, size: 3, gravity: 260,
+          dir: Math.PI, spread: 1.1,
+        });
+        this.particles.emit('puff', dog.x, GROUND_Y - 8, 6, {
+          color: this.env.grass, speed: 150, life: 0.34, size: 7, gravity: 200,
+          dir: Math.PI, spread: 1.4,
+        });
       }
       return;
     }
@@ -614,24 +666,57 @@ export class Session {
         }
         dog.stage = 'out';
         dog.timer = 2;
-      } else if (dog.pose === 'sniff' && dog.timer < (this.quickRetrieve ? 0.05 : 0.08)) {
-        dog.pose = 'found';
+        dog.teaseAs = null;
+        // Away again the instant he has it — the second half of the trip is the same sprint.
+        dog.blur = true;
+        dog.lastTrailX = dog.x;
+        this.audio.play('zip');
+        this.particles.emit('spark', dog.x, GROUND_Y - 16, 8, {
+          color: '#ffe08a', speed: 300, life: 0.24, size: 3, gravity: 240,
+          dir: Math.PI, spread: 1.2,
+        });
       }
       return;
     }
 
-    // Out: trot off the right edge, holding the duck up.
+    // Out: away off the right edge, holding the duck up.
     dog.x += speed * 1.15 * dt;
-    dog.y = GROUND_Y - 6 - Math.abs(Math.sin(dog.phase * 8)) * 4;
+    dog.y = GROUND_Y - 6 - Math.abs(Math.sin(dog.phase * 20)) * 4;
     if (dog.carrying) dog.pose = 'proud';
-    else dog.pose = Math.floor(dog.phase * 9) % 2 === 0 ? 'run1' : 'run2';
+    else dog.pose = Math.floor(dog.phase * 22) % 2 === 0 ? 'run1' : 'run2';
+    this.sampleTrail();
 
     if (dog.x > VIEW_W + DOG_W) {
       dog.active = false;
+      dog.blur = false;
+      dog.teaseAs = null;
       dog.carrying = null;
       dog.x = -DOG_W;
       // More birds down than one trip can carry: go again.
       if (this.pendingRetrieve.length > 0) this.startRetrieve();
+    }
+  }
+
+  /**
+   * Drop an afterimage every `DOG_TRAIL_STEP` pixels of travel.
+   *
+   * Spacing by distance rather than by time is what keeps the trail even through the whole
+   * sprint. It also self-limits: he cannot outrun his own trail, and standing still adds
+   * nothing, so the array stays inside its cap without a separate cooldown.
+   */
+  private sampleTrail(): void {
+    const dog = this.dog;
+    // Advance the marker by exactly one step at a time rather than snapping it to where he
+    // happens to be. He covers 23px per tick and the spacing is 26, so snapping would drop every
+    // other sample and quietly double the gap — a thinner trail than the numbers say, and one
+    // that would change again on a machine that ran the steps at a different rate.
+    while (dog.x - dog.lastTrailX >= DOG_TRAIL_STEP) {
+      dog.lastTrailX += DOG_TRAIL_STEP;
+      dog.trail.push({
+        x: dog.lastTrailX, y: dog.y, pose: dog.pose,
+        step: Math.floor(dog.phase * 8) % 8, life: DOG_TRAIL_SECONDS,
+      });
+      if (dog.trail.length > DOG_TRAIL_MAX) dog.trail.shift();
     }
   }
 
@@ -750,17 +835,18 @@ export class Session {
       ctx.restore();
     }
 
-    this.drawDog(ctx, cache);
-    backdrop.drawGround(ctx);
     /**
-     * The pile and the machine live in *front* of the fence, not behind it.
+     * Everything on the ground is drawn *after* the ground strip, in front of the fence.
      *
-     * Drawn after the ground strip on purpose. The first version put them before it, and the
-     * fence rails swallowed both — eight birds on the ground with nothing visible, and a
-     * harvester that read as a floating orange box with no wheels. Biscuit stays behind, which
-     * gives the scene a bit of depth for free: the dog works the fence line, the machine works
-     * the near grass.
+     * The first version put the pile and the harvester before it and the fence rails swallowed
+     * both — eight birds down with nothing visible, and a machine that read as a floating orange
+     * box with no wheels. Biscuit was left behind the fence for a bit of free depth, which was
+     * fine while he was a dog who trotted; the moment he grew a speed trail it stopped being
+     * fine, because the rails cut the afterimages into stripes and the whole effect read as
+     * smoke caught in a fence. The spectacle has to be in front of the scenery.
      */
+    backdrop.drawGround(ctx);
+    this.drawDog(ctx, cache);
     this.drawPile(ctx, cache);
     this.drawHarvester(ctx, cache);
     this.particles.draw(ctx, cache);
@@ -807,13 +893,104 @@ export class Session {
     ctx.drawImage(sprite, Math.round(h.x), Math.round(GROUND_Y + HARVESTER_BASELINE - HARVESTER_H));
   }
 
+  /**
+   * The speed trail: glow, streaks, afterimages, bolts — then the dog himself, on top.
+   *
+   * Two lessons are baked into that order and into the colours, and both cost a rebuild to
+   * learn.
+   *
+   * The first: additive blending is the obvious choice for a speed effect and the wrong one
+   * over a pale sky and bright grass. It saturates straight to white, so a dozen carefully
+   * spaced silhouettes came out as a single grey smudge — smoke, not speed. Only the lightning
+   * is additive now, because lightning is the one element here that genuinely is light.
+   *
+   * The second: the head glow has to go down *before* the afterimages, not after. Drawn last it
+   * sat on top of the three freshest ghosts and washed out exactly the ones doing the work.
+   */
+  private drawTrail(ctx: CanvasRenderingContext2D, cache: SpriteCache): void {
+    const dog = this.dog;
+    if (dog.trail.length === 0 && !dog.blur) return;
+
+    ctx.save();
+
+    if (dog.blur) {
+      // A tight warm glow travelling with him, so the trail has a bright head to fade from.
+      const cy = dog.y - DOG_H / 2;
+      const glow = ctx.createRadialGradient(dog.x, cy, 0, dog.x, cy, 62);
+      glow.addColorStop(0, 'rgba(255, 224, 138, 0.45)');
+      glow.addColorStop(1, 'rgba(255, 224, 138, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(dog.x - 62, cy - 62, 124, 124);
+
+      // Straight streaks, long and thin, drawn from just behind him. In a still frame these are
+      // what state the direction of travel.
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        const cycle = (dog.phase * 6 + i * 0.29) % 1;
+        const len = 90 + cycle * 190;
+        const y = dog.y - 8 - ((i * 19) % 46);
+        ctx.globalAlpha = 0.45 * (1 - cycle);
+        ctx.strokeStyle = i % 2 === 0 ? '#ffd166' : '#fff3cf';
+        ctx.lineWidth = 2.6 - i * 0.24;
+        ctx.beginPath();
+        ctx.moveTo(dog.x - 26, y);
+        ctx.lineTo(dog.x - 26 - len, y);
+        ctx.stroke();
+      }
+    }
+
+    /**
+     * Afterimages, oldest first, cooling from near-white through amber to ember red.
+     *
+     * Three tints rather than a continuous ramp, because the sprite cache keys on the colour and
+     * a value that changed every frame would bake a fresh dog every frame. The freshest is
+     * almost white on purpose: the fence he runs past is the same brown and gold as the dog, and
+     * a gold ghost on a gold rail is not a ghost, it is camouflage.
+     */
+    for (const t of dog.trail) {
+      const k = Math.max(0, t.life / DOG_TRAIL_SECONDS);
+      const tint = k > 0.66 ? '#fff6de' : k > 0.33 ? '#ffbe4d' : '#e2503f';
+      ctx.globalAlpha = k * 0.72;
+      ctx.drawImage(cache.dogGhost(t.pose, t.step, tint), t.x - DOG_W / 2, t.y - DOG_H);
+    }
+
+    // Two lightning bolts, additive and white-cored, over everything else in the trail. This is
+    // the element that says *speedster* rather than merely *fast*.
+    if (dog.blur) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (let b = 0; b < 2; b++) {
+        const seed = Math.floor(dog.phase * 26) + b * 3;
+        const y0 = dog.y - 20 - b * 22;
+        ctx.globalAlpha = 0.85;
+        for (const [width, color] of [[5, 'rgba(240, 176, 60, 0.55)'], [1.8, '#fffbe8']] as const) {
+          ctx.lineWidth = width;
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(dog.x - 22, y0);
+          for (let n = 1; n <= 5; n++) {
+            // A cheap deterministic zigzag: the same shape for a whole frame, a new one the
+            // next, which is exactly how lightning behaves.
+            const jag = (((seed * 37 + n * 61) % 23) - 11) * 1.5;
+            ctx.lineTo(dog.x - 22 - n * 40, y0 + jag);
+          }
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
   private drawDog(ctx: CanvasRenderingContext2D, cache: SpriteCache): void {
     const dog = this.dog;
+    this.drawTrail(ctx, cache);
     if (!dog.active) return;
 
     const sprite = cache.dog(dog.pose, Math.floor(dog.phase * 8) % 8, this.bandana);
     ctx.save();
     ctx.translate(dog.x, dog.y);
+    // Stretched along the direction of travel while he is at speed. A couple of frames of this
+    // is the oldest trick in animation for making fast reads as fast rather than as jumpy.
+    if (dog.blur) ctx.scale(1.2, 0.93);
     // Facing is by travel direction; the sprite is authored facing right.
     ctx.drawImage(sprite, -DOG_W / 2, -DOG_H);
 

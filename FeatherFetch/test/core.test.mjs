@@ -28,6 +28,7 @@ import {
   ACHIEVEMENTS, newlyEarned, DOG_SKINS, WEAPON_SKINS, cosmeticUnlocked, cosmeticHint,
   SaveManager, defaultSave, DEFAULT_SETTINGS,
   DOG_RETRIEVE_SECONDS, DOG_SPEED, DOG_TEASE_SECONDS,
+  DOG_TRAIL_SECONDS, DOG_TRAIL_MAX, DOG_TRAIL_STEP,
 } from '../build/test/core.mjs';
 
 // ── the fairness sweep ──────────────────────────────────────────────────────
@@ -528,6 +529,24 @@ test('the retrieval is about a second, not a cut-scene', () => {
     `retrieval is ${DOG_RETRIEVE_SECONDS}s — the shooting is the game, not the dog`);
   assert.ok(DOG_TEASE_SECONDS <= DOG_RETRIEVE_SECONDS,
     'the miss reaction must not last longer than a successful fetch');
+});
+
+/**
+ * The trail's three constants are coupled, and the coupling is invisible in any one of them.
+ *
+ * Raise the speed alone and the images spread apart into a dotted line; raise the lifetime alone
+ * and the cap starts discarding images that are still bright, so the streak ends in a hard edge.
+ * This is the check that makes any of those three edits fail loudly rather than look slightly
+ * wrong on a screen nobody is testing on.
+ */
+test('the speed trail stays unbroken and inside its cap', () => {
+  // The run out is the fastest leg, so it is the one that stresses both bounds.
+  const alive = (DOG_SPEED * 1.15 * DOG_TRAIL_SECONDS) / DOG_TRAIL_STEP;
+  assert.ok(alive >= 8, `only ${alive.toFixed(1)} afterimages at once — reads as a dotted line`);
+  assert.ok(alive <= DOG_TRAIL_MAX,
+    `${alive.toFixed(1)} afterimages against a cap of ${DOG_TRAIL_MAX} — the trail ends in a hard edge`);
+  // And the whole streak has to be a good deal longer than the dog, or it is just a shadow.
+  assert.ok(DOG_TRAIL_SECONDS * DOG_SPEED >= 240, 'trail is too short to read as speed');
 });
 
 test('the dog is fast enough to cross the field inside its window', () => {

@@ -14,7 +14,7 @@
 
 export type Sfx =
   | 'shot' | 'empty' | 'reload' | 'hit' | 'hitRare' | 'clang' | 'fall'
-  | 'flap' | 'quack' | 'escape' | 'bark' | 'sniff' | 'dogRun' | 'dogTease'
+  | 'flap' | 'quack' | 'escape' | 'bark' | 'sniff' | 'dogRun' | 'dogTease' | 'zip'
   | 'perfect' | 'roundStart' | 'gameOver' | 'button' | 'combo' | 'unlock'
   | 'harvest' | 'scoop';
 
@@ -152,6 +152,19 @@ export class AudioManager {
         break;
       case 'dogRun':
         for (let i = 0; i < 4; i++) this.hit(t + i * 0.1, 0.035, 700, 0.13, 'lowpass', 1);
+        break;
+      case 'zip':
+        /**
+         * Biscuit leaving. A whip-crack rather than footsteps.
+         *
+         * Four paw-falls would be wrong at this speed — the whole sprint is shorter than the
+         * gap between two of them. A single swept whoosh is the only thing that fits inside a
+         * fifth of a second, and it is pitched high so it cuts through without competing with
+         * the shot.
+         */
+        this.hit(t, 0.13, 2400, 0.3, 'highpass', 1.2);
+        this.tone(t, 'sawtooth', 340, 1900, 0.12, 0.13, 3200);
+        this.tone(t + 0.02, 'sine', 950, 2500, 0.09, 0.09);
         break;
       case 'dogTease':
         // A little descending giggle — the dog laughing at you.

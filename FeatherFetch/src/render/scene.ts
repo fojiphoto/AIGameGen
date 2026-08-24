@@ -59,6 +59,25 @@ export class SpriteCache {
       (ctx) => drawDog(ctx, pose, phaseStep * 0.42, bandana));
   }
 
+  /**
+   * A flat, single-colour silhouette of the dog, for the speed trail.
+   *
+   * Drawing the full dog eight times over with lowered alpha reads as eight dogs, not as one
+   * fast one — the eye picks out the eyes and the bandana in every copy. Flattening each
+   * afterimage to one colour removes every feature the eye can latch onto, so the row of them
+   * reads as a single streak of light. `source-atop` keeps the baked alpha and replaces the
+   * colour, which is a tint in one operation with no pixel loop.
+   */
+  dogGhost(pose: DogPose, phaseStep: number, tint: string): HTMLCanvasElement {
+    return this.bake(`dogg:${pose}:${phaseStep}:${tint}`, DOG_W, DOG_H, (ctx) => {
+      drawDog(ctx, pose, phaseStep * 0.42, tint);
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = tint;
+      ctx.fillRect(0, 0, DOG_W, DOG_H);
+      ctx.globalCompositeOperation = 'source-over';
+    });
+  }
+
   feather(size: number, color: string, angleStep: number): HTMLCanvasElement {
     return this.bake(`feather:${size}:${color}:${angleStep}`, size, size,
       (ctx) => drawFeather(ctx, size, color, (angleStep / 8) * Math.PI * 2));
