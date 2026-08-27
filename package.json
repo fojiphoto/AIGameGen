@@ -31,6 +31,7 @@
     "api": "node apps/api/src/server.mjs",
     "generate": "node tools/generate.mjs",
     "apk": "node tools/build-apk.mjs",
+    "apks": "node tools/build-apks.mjs",
     "slice": "node tools/slice.mjs"
   },
   "devDependencies": {
