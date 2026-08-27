@@ -27,8 +27,8 @@ import { spawnSync } from 'node:child_process';
 import {
   mkdir, writeFile, readFile, rm, cp, stat, readdir,
 } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join, resolve, basename } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve, basename, dirname } from 'node:path';
 import { renderIcon, MIPMAPS } from './png.mjs';
 
 // ── environment ─────────────────────────────────────────────────────────────
@@ -141,6 +141,11 @@ if (!existsSync(configPath)) die(`no config.json at ${configPath}`);
 const config = JSON.parse(await readFile(configPath, 'utf8'));
 const pkg = config.meta.packageId;
 const label = config.meta.title;
+/**
+ * Portrait games exist, and locking one to landscape ships a tall sliver between two black
+ * bars. Whoever stages the bundle knows the aspect ratio, so they pass it through.
+ */
+const orientation = config.meta.orientation || 'sensorLandscape';
 const versionCode = Number(process.env.VERSION_CODE || 1);
 const versionName = process.env.VERSION_NAME || '1.0.0';
 
@@ -166,6 +171,20 @@ function javaVersion() {
 
 const t0 = Date.now();
 
+/** Every file under `dir`, as slash-separated paths relative to it. */
+async function listFiles(dir, prefix = '') {
+  const out = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...(await listFiles(join(dir, entry.name), rel)));
+    else out.push(rel);
+  }
+  return out;
+}
+
+/** Asset paths that live in a subdirectory, appended after the link step. See below. */
+const nestedAssets = [];
+
 // ── 1. workspace ────────────────────────────────────────────────────────────
 
 const pkgPath = pkg.split('.').join('/');
@@ -179,16 +198,36 @@ await stage('workspace', async () => {
   await mkdir(join(work, 'assets'), { recursive: true });
   await mkdir(join(work, 'res'), { recursive: true });
 
-  // FLAT, not assets/public/. aapt2 -A writes OS-native separators for nested
-  // asset paths on Windows ("assets/public\index.html"), which AssetManager then
-  // cannot resolve. Flat entries avoid it; the verify stage below proves it.
-  await cp(bundleDir, join(work, 'assets'), { recursive: true });
+  /**
+   * Assets are split in two, and the reason is a real Windows defect rather than taste.
+   *
+   * aapt2's `-A` writes OS-native separators for *nested* asset paths on Windows, producing zip
+   * entries like "assets/runtime\main.wasm" that AssetManager cannot resolve — a build that
+   * succeeds and a game that shows a blank screen. So only the top level goes through `-A`;
+   * anything in a subdirectory is appended afterwards with `aapt add`, which stores the path
+   * exactly as given and therefore keeps forward slashes on every platform.
+   *
+   * Most games are flat and never touch the second path at all. The ones that are not are the
+   * WebAssembly games, whose runtime is a tree of several hundred files.
+   */
+  for (const rel of await listFiles(bundleDir)) {
+    const src = join(bundleDir, rel);
+    if (rel.includes('/')) {
+      nestedAssets.push(rel);
+      const dest = join(work, 'nested', 'assets', rel);
+      await mkdir(dirname(dest), { recursive: true });
+      await cp(src, dest);
+    } else {
+      await cp(src, join(work, 'assets', rel));
+    }
+  }
 
   const manifest = (await readFile(join(TEMPLATE, 'AndroidManifest.xml'), 'utf8'))
     .replaceAll('__PACKAGE__', pkg)
     .replaceAll('__LABEL__', escapeXml(label))
     .replaceAll('__VERSION_CODE__', String(versionCode))
-    .replaceAll('__VERSION_NAME__', versionName);
+    .replaceAll('__VERSION_NAME__', versionName)
+    .replaceAll('__ORIENTATION__', orientation);
   await writeFile(join(work, 'AndroidManifest.xml'), manifest, 'utf8');
 
   const java = (await readFile(join(TEMPLATE, 'java', 'MainActivity.java'), 'utf8'))
@@ -263,6 +302,23 @@ await stage('aapt2 link', () => {
   ]);
   return '';
 });
+
+// ── 6b. nested assets ───────────────────────────────────────────────────────
+
+if (nestedAssets.length) {
+  await stage('add nested assets', () => {
+    // In batches: a WebAssembly runtime is several hundred files, and one `aapt add` per file
+    // would spend more time starting processes than writing zip entries. The paths are passed
+    // with forward slashes and stored verbatim, which is the whole point of doing it here
+    // rather than through aapt2's -A.
+    const cwd = join(work, 'nested');
+    for (let i = 0; i < nestedAssets.length; i += 60) {
+      const batch = nestedAssets.slice(i, i + 60).map((rel) => `assets/${rel}`);
+      run(AAPT, ['add', '-f', baseApk, ...batch], { cwd });
+    }
+    return `${nestedAssets.length} files`;
+  });
+}
 
 // ── 7. inject classes.dex ───────────────────────────────────────────────────
 
@@ -350,8 +406,54 @@ await stage('verify contents', () => {
     );
   }
 
-  for (const required of ['assets/index.html', 'assets/game.js', 'classes.dex', 'resources.arsc', 'AndroidManifest.xml']) {
+  for (const required of ['assets/index.html', 'classes.dex', 'resources.arsc', 'AndroidManifest.xml']) {
     if (!entries.includes(required)) problems.push(`missing required entry: ${required}`);
+  }
+
+  /**
+   * The page must bring its scripts with it.
+   *
+   * This used to require `assets/game.js` by name, which quietly assumed every game came out of
+   * the generator. It did not: the hand-built ones ship `app.js` and `engine.js`. What actually
+   * matters is that every local script the page asks for is inside the APK — a missing one is a
+   * blank screen on a device and nothing at all in this log.
+   *
+   * The distinction that matters is between a file *packaging dropped* and one that was never
+   * there to begin with. A WebAssembly loader probes for optional pieces that are 404 on the
+   * live site too, and reproducing that faithfully is correct behaviour, not a defect. So a
+   * reference with no matching file in the input bundle is a note; a file that was in the bundle
+   * and is not in the APK is a build failure.
+   */
+  const html = readFileSync(join(work, 'assets', 'index.html'), 'utf8');
+  const wanted = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)]
+    .map((m) => m[1])
+    .filter((src) => !/^(https?:)?\/\//.test(src));
+  const optional = [];
+  for (const src of wanted) {
+    // Absolute, relative and double-slashed forms all name the same asset. Normalise the way
+    // the app's own asset server does, or this check reports files that are really there.
+    const clean = src.split(/[?#]/)[0].replace(/^\.\//, '').replace(/\/+/g, '/').replace(/^\//, '');
+    if (entries.includes(`assets/${clean}`)) continue;
+    if (existsSync(join(bundleDir, clean))) {
+      problems.push(`packaging dropped assets/${clean}, which index.html loads`);
+    } else {
+      optional.push(clean);
+    }
+  }
+  if (!entries.some((e) => /^assets\/.+\.js$/.test(e))) {
+    problems.push('no JavaScript in assets — the APK would open to a blank page');
+  }
+  if (optional.length) {
+    console.log(
+      `
+  [33mnote[0m ${optional.length} script${optional.length === 1 ? '' : 's'} ` +
+      `referenced by the page but absent from the bundle, exactly as on the website: ` +
+      `${optional.join(', ')}`
+    );
+  }
+
+  for (const rel of nestedAssets) {
+    if (!entries.includes(`assets/${rel}`)) problems.push(`nested asset dropped: assets/${rel}`);
   }
 
   const icons = entries.filter((e) => /^res\/mipmap-.*ic_launcher\.png$/.test(e));

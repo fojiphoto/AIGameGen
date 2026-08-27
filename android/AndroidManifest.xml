@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Manifest template. tools/build-apk.mjs substitutes __PACKAGE__, __LABEL__,
-  __VERSION_CODE__ and __VERSION_NAME__ per generated game.
+  __VERSION_CODE__, __VERSION_NAME__ and __ORIENTATION__ per game.
+
+  Orientation is per-game rather than fixed, because it is not a preference: a 9:16
+  game locked to landscape is a tall sliver between two black bars, and a 16:9 game
+  locked to portrait is worse. The web build already knows its aspect ratio, so the
+  APK build reads it from the same place.
 
   Note what is ABSENT: there is no <uses-permission> element at all. No INTERNET,
   no storage, nothing. A generated game is fully self-contained, and shipping zero
@@ -28,7 +33,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="__ORIENTATION__"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
             android:launchMode="singleTask">
             <intent-filter>

@@ -45,3 +45,9 @@ __pycache__/
 
 # FeatherFetch: the test bundle is regenerated on every run.
 FeatherFetch/build/test/
+
+# APK build workspace, and the staging copy of the built APKs.
+# The published copies in docs/apk/ are the ones that ship, and publishing carries them across
+# its own wipe, so a second copy in git would only double the weight of every rebuild.
+build/
+assets/apk/

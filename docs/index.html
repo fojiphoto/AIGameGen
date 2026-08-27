@@ -49,6 +49,11 @@
   .btn:hover{transform:translateY(-1px)}
   .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);margin-left:8px}
   .btn.ghost:hover{color:var(--text);border-color:rgba(255,255,255,.22)}
+  /* Cards carry up to three buttons now, and at 280px they have to be allowed to wrap. */
+  .btn{margin-top:6px}
+  .btn.apk{border-color:rgba(240,192,74,.5);color:var(--gold)}
+  .btn.apk:hover{color:#ffe08a;border-color:rgba(240,192,74,.9);background:rgba(240,192,74,.08)}
+  .btn.apk span{opacity:.6;font-weight:400;margin-left:5px}
   .note{margin-top:18px;padding:16px 18px;border-radius:var(--r);background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:13.5px;color:var(--muted)}
   code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:5px;color:var(--leaf2)}
   pre{margin-top:10px;padding:14px;border-radius:14px;background:rgba(0,0,0,.4);overflow-x:auto;font-size:12px;color:var(--text)}
@@ -82,6 +87,8 @@
           <p class="stats">Python + pygame, compiled to WebAssembly · zero asset files · 156 automated checks</p>
           <p class="stats" style="color:var(--gold);opacity:.9">First load fetches a ~10 MB engine runtime from this site, then the browser caches it.</p>
           <a class="btn" href="play/neon-coil/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/neon-coil.apk" download
+             title="Signed Android build — 10.5 MB">GET APK <span>10.5 MB</span></a>
           <a class="btn ghost" href="embed/neon-coil.html">EMBED</a>
         </div>
       </article>
@@ -97,6 +104,8 @@
           <p class="stats">Python + pygame, compiled to WebAssembly · zero asset files · 239 automated checks</p>
           <p class="stats" style="color:var(--gold);opacity:.9">First load fetches a ~10 MB engine runtime from this site, then the browser caches it.</p>
           <a class="btn" href="play/block-bloom/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/block-bloom.apk" download
+             title="Signed Android build — 10.5 MB">GET APK <span>10.5 MB</span></a>
           <a class="btn ghost" href="embed/block-bloom.html">EMBED</a>
         </div>
       </article>
@@ -112,6 +121,8 @@
           <p class="stats">TypeScript + Canvas · 150 KB total · 186 automated checks including perft</p>
           <p class="stats" style="color:var(--gold);opacity:.9">Starts instantly — no runtime to download. Plays offline once loaded.</p>
           <a class="btn" href="play/ivory-gambit/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/ivory-gambit.apk" download
+             title="Signed Android build — 65 KB">GET APK <span>65 KB</span></a>
           <a class="btn ghost" href="embed/ivory-gambit.html">EMBED</a>
         </div>
       </article>
@@ -127,6 +138,8 @@
           <p class="stats">TypeScript + Canvas · 118 KB total · every level proved completable by a solver</p>
           <p class="stats" style="color:var(--gold);opacity:.9">Starts instantly. Keyboard, touch and gamepad. Plays offline once loaded.</p>
           <a class="btn" href="play/emberwake/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/emberwake.apk" download
+             title="Signed Android build — 49 KB">GET APK <span>49 KB</span></a>
           <a class="btn ghost" href="embed/emberwake.html">EMBED</a>
         </div>
       </article>
@@ -142,6 +155,8 @@
           <p class="stats">TypeScript + Canvas · 85 KB total · every duck proved fairly hittable by a sweep</p>
           <p class="stats" style="color:var(--gold);opacity:.9">Starts instantly. Mouse or touch. Plays offline once loaded.</p>
           <a class="btn" href="play/feather-and-fetch/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/feather-and-fetch.apk" download
+             title="Signed Android build — 45 KB">GET APK <span>45 KB</span></a>
           <a class="btn ghost" href="embed/feather-and-fetch.html">EMBED</a>
         </div>
       </article>
@@ -156,6 +171,8 @@
           <p class="blurb">One tap, one life. No menus — die and you are already running again.</p>
           <p class="stats">10 levels · 174 elements verified · ~5.9 min</p>
           <a class="btn" href="play/rhythm-dash-glitch-circuit/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/rhythm-dash-glitch-circuit.apk" download
+             title="Signed Android build — 361 KB">GET APK <span>361 KB</span></a>
         </div>
       </article>
       <article class="card">
@@ -169,6 +186,8 @@
           <p class="blurb">Auto-run and jump. Twenty levels, then endless mode.</p>
           <p class="stats">20 levels · 455 elements verified · ~11.5 min</p>
           <a class="btn" href="play/endless-runner-cinder-sprint/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/endless-runner-cinder-sprint.apk" download
+             title="Signed Android build — 361 KB">GET APK <span>361 KB</span></a>
         </div>
       </article>
       <article class="card">
@@ -182,6 +201,8 @@
           <p class="blurb">Tap to flap and thread the gaps.</p>
           <p class="stats">20 levels · 454 elements verified · ~12.1 min</p>
           <a class="btn" href="play/tap-to-fly-void-runner/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/tap-to-fly-void-runner.apk" download
+             title="Signed Android build — 365 KB">GET APK <span>365 KB</span></a>
         </div>
       </article>
       <article class="card">
@@ -195,6 +216,8 @@
           <p class="blurb">Eat, grow, and do not run into yourself.</p>
           <p class="stats">20 levels · 106 elements verified · ~5.1 min</p>
           <a class="btn" href="play/snake-wild-dash/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/snake-wild-dash.apk" download
+             title="Signed Android build — 361 KB">GET APK <span>361 KB</span></a>
         </div>
       </article>
       <article class="card">
@@ -208,6 +231,8 @@
           <p class="blurb">Swipe to merge tiles and reach the target.</p>
           <p class="stats">20 levels · 132 elements verified · ~27.6 min</p>
           <a class="btn" href="play/2048-merge-ink-edge/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/2048-merge-ink-edge.apk" download
+             title="Signed Android build — 361 KB">GET APK <span>361 KB</span></a>
         </div>
       </article>
       <article class="card">
@@ -221,6 +246,8 @@
           <p class="blurb">Find every pair before the clock runs out.</p>
           <p class="stats">20 levels · 168 elements verified · ~12.6 min</p>
           <a class="btn" href="play/memory-match-thorn-sprint/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/memory-match-thorn-sprint.apk" download
+             title="Signed Android build — 361 KB">GET APK <span>361 KB</span></a>
         </div>
       </article>
       <article class="card">
@@ -234,6 +261,8 @@
           <p class="blurb">Slide the tiles back into order.</p>
           <p class="stats">20 levels · 713 elements verified · ~19.2 min</p>
           <a class="btn" href="play/sliding-puzzle-frost-drift/">PLAY NOW</a>
+          <a class="btn ghost apk" href="apk/sliding-puzzle-frost-drift.apk" download
+             title="Signed Android build — 361 KB">GET APK <span>361 KB</span></a>
         </div>
       </article>
   </div>

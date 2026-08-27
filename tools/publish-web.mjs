@@ -35,6 +35,8 @@ const OUT = join(ROOT, 'docs');
 const TMP = join(ROOT, 'artifacts', '_publish');
 /** Cover art, one 800x450 PNG per slug. Built by `python tools/make-thumbs.py`. */
 const THUMBS = join(ROOT, 'assets', 'thumbs');
+/** Installable builds, one signed APK per slug. Built by `node tools/build-apks.mjs`. */
+const APKS = join(ROOT, 'assets', 'apk');
 
 /** One showcase game per template, each with a distinct theme. */
 const SHOWCASE = [
@@ -61,6 +63,8 @@ const NATIVE_EXTRAS = [
     slug: 'neon-coil',
     title: 'NEON COIL',
     label: 'Hand-built',
+    /** Python compiled to WebAssembly: the APK has to carry a runtime the others do not. */
+    wasm: true,
     family: 'arcade snake',
     from: join(ROOT, 'NeonCoil', 'build', 'web'),
     blurb: 'Free-steering snake with a body that traces real curves. Three modes, six power-ups, '
@@ -74,6 +78,7 @@ const NATIVE_EXTRAS = [
     slug: 'block-bloom',
     title: 'BLOCK BLOOM',
     label: 'Hand-built',
+    wasm: true,
     family: 'block puzzle',
     from: join(ROOT, 'BlockBloom', 'build', 'web'),
     blurb: 'Drag blocks onto an 8x8 board and fill rows to clear them. Smart piece dealing that '
@@ -129,10 +134,118 @@ const NATIVE_EXTRAS = [
   },
 ];
 
+/**
+ * The page a "GET APK" button lands on when someone wants to know what they just downloaded.
+ *
+ * Android will show a scary warning for any APK not installed from Play, and a player who has
+ * never side-loaded anything will assume something is wrong and stop. So the page answers the
+ * three questions that actually block an install, in the order they come up: is this safe, how
+ * do I allow it, and what happens if it will not open.
+ */
+const installPage = (games) => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Install on Android — Forge Arcade</title>
+<meta name="description" content="Download any Forge game as an Android APK and play it offline." />
+<style>
+  :root{--bg:#0d0b14;--panel:#15121f;--line:rgba(255,255,255,.1);--text:#f2eefa;--muted:#a79fbe;--gold:#f0c04a}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:15px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:38px 20px 70px}
+  .wrap{max-width:760px;margin:0 auto}
+  a{color:var(--gold)}
+  h1{font-size:29px;letter-spacing:-.01em;margin-bottom:8px}
+  h2{font-size:17px;margin:34px 0 10px}
+  p{color:var(--muted);margin-bottom:12px}
+  ol{color:var(--muted);margin:0 0 12px 20px}
+  li{margin-bottom:7px}
+  .back{display:inline-block;margin-bottom:26px;font-size:13px;text-decoration:none}
+  .list{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:14px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .row:last-child{border-bottom:0}
+  .row b{font-weight:600;font-size:14px}
+  .row a{font-size:12px;font-weight:600;text-decoration:none;border:1px solid rgba(240,192,74,.45);padding:7px 15px;border-radius:999px;white-space:nowrap}
+  .note{border:1px solid var(--line);border-left:2px solid var(--gold);border-radius:0 12px 12px 0;background:var(--panel);padding:15px 18px;margin-top:22px;font-size:14px;color:var(--muted)}
+  code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:5px;font-size:12.5px;color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">&larr; back to the arcade</a>
+  <h1>Play these on your phone</h1>
+  <p>Every game here is also a real Android app. Download it, install it, and it runs with no
+     internet at all — the whole game is inside the file.</p>
+
+  <h2>Installing</h2>
+  <ol>
+    <li>Tap a download below on the phone itself.</li>
+    <li>Open it. Android will say the file came from an unknown source — this happens to every
+        app not installed through the Play Store, including this one.</li>
+    <li>Tap <b>Settings</b> in that prompt, turn on <b>Allow from this source</b>, then go back
+        and tap <b>Install</b>.</li>
+  </ol>
+  <p>Android 7.0 or newer. Nothing else is needed.</p>
+
+  <h2>Downloads</h2>
+  <div class="list">
+${games.map((g) => `
+    <div class="row"><b>${esc(g.title)}</b><a href="${g.slug}.apk" download>APK</a></div>`).join('')}
+  </div>
+
+  <div class="note">
+    <b>These apps ask for no permissions at all.</b> Not internet, not storage, not location —
+    the install screen will show an empty list. That is not an oversight: the game is entirely
+    self-contained, so there is nothing for it to ask for, and an empty permission list is the
+    strongest proof of that we can give you.
+  </div>
+
+  <div class="note">
+    <b>If it will not install.</b> "App not installed" almost always means an older build of the
+    same game is already on the phone and was signed with a different key. Uninstall the old one
+    first. On a work phone, side-loading may be blocked by policy and there is no way around
+    that — the browser version plays the same game.
+  </div>
+
+  <footer style="margin-top:40px;font-size:12px;color:var(--muted);opacity:.6">
+    &copy; 2026 Factorial Studio Private Limited.
+  </footer>
+</div>
+</body>
+</html>
+`;
+
 const slugify = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 console.log('\n\x1b[1mFORGE — publish static site\x1b[0m\n');
+
+/**
+ * Publishing wipes `docs/` and rebuilds it, which is what makes the output trustworthy — nothing
+ * survives from a previous run to be quietly served forever.
+ *
+ * The APKs are the one exception, and they have to be. They take an Android SDK and several
+ * minutes to produce, they are the only thing in `docs/` that is not cheap to regenerate, and
+ * they are what the download buttons point at. Wiping them would mean anyone publishing the site
+ * without an Android toolchain to hand would silently ship an arcade with no downloads and no
+ * error to explain it.
+ *
+ * So they are carried across the wipe: rescued into `assets/apk/` first, then copied back in
+ * below. Building new ones still wins, because `tools/build-apks.mjs` writes to that same
+ * staging folder and this only fills in what is missing from it.
+ */
+try {
+  const previous = await readdir(join(OUT, 'apk'));
+  await mkdir(APKS, { recursive: true });
+  const staged = new Set(await readdir(APKS).catch(() => []));
+  let rescued = 0;
+  for (const f of previous) {
+    if (!f.endsWith('.apk') || staged.has(f)) continue;
+    await copyFile(join(OUT, 'apk', f), join(APKS, f));
+    rescued++;
+  }
+  if (rescued) console.log(`  ok   ${'Android'.padEnd(16)} kept ${rescued} APK(s) from the last publish`);
+} catch { /* no previous publish, or it had no apk folder */ }
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(join(OUT, 'engine'), { recursive: true });
@@ -186,6 +299,52 @@ try {
   console.log(`  \x1b[33mskip\x1b[0m ${'Covers'.padEnd(16)} none at assets/thumbs — cards fall back to gradients`);
   console.log(`       build them with:  python tools/make-thumbs.py`);
 }
+
+/**
+ * Installable builds for the arcade cards.
+ *
+ * Same shape as the covers above and for the same reason: a missing APK is not an error. The
+ * card simply loses its download button, so the site can be published on a machine with no
+ * Android SDK and still be correct — it just offers fewer ways to play.
+ *
+ * This is why the APKs are staged in `assets/` rather than written straight into `docs/`:
+ * publishing begins by deleting `docs/`, so anything built directly into it would vanish on the
+ * next run, and the cards would have to guess at sizes they could no longer measure.
+ */
+const apks = new Map();
+try {
+  for (const f of await readdir(APKS)) {
+    if (!f.endsWith('.apk')) continue;
+    const { size } = await stat(join(APKS, f));
+    apks.set(f.slice(0, -4), size);
+  }
+} catch { /* no APKs built — every card falls back to web-only */ }
+
+if (apks.size) {
+  await mkdir(join(OUT, 'apk'), { recursive: true });
+  await cp(APKS, join(OUT, 'apk'), { recursive: true });
+  console.log(`  [32mok[0m   ${'Android'.padEnd(16)} ${apks.size} APKs -> docs/apk/`);
+} else {
+  console.log(`  [33mskip[0m ${'Android'.padEnd(16)} none at assets/apk — cards will be web-only`);
+  console.log(`       build them with:  node tools/build-apks.mjs`);
+}
+
+/**
+ * A size a person can read at a glance.
+ *
+ * Rounding everything to megabytes printed the two smallest games as "0.0 MB", which reads as a
+ * broken build rather than as a 46 KB one — and being that small is the most interesting thing
+ * about them.
+ */
+const fileSize = (bytes) => bytes < 1024 * 1024
+  ? `${Math.round(bytes / 1024)} KB`
+  : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+/** The download button, or nothing at all when this game has no build yet. */
+const apkButton = (slug) => apks.has(slug)
+  ? `<a class="btn ghost apk" href="apk/${slug}.apk" download
+             title="Signed Android build — ${fileSize(apks.get(slug))}">GET APK <span>${fileSize(apks.get(slug))}</span></a>`
+  : '';
 
 /** A card's cover: the real screenshot when there is one, the palette gradient when there is not. */
 const thumb = (g) => covers.has(g.slug)
@@ -249,6 +408,7 @@ for (const item of SHOWCASE) {
 
   published.push({
     slug,
+    packageId: config.meta.packageId,
     label: entry.label,
     family: entry.family,
     title: config.meta.title,
@@ -327,6 +487,7 @@ const extraCards = extras
           <p class="stats">${esc(g.stats)}</p>
           <p class="stats" style="color:var(--gold);opacity:.9">${esc(g.note)}</p>
           <a class="btn" href="play/${g.slug}/">PLAY NOW</a>
+          ${apkButton(g.slug)}
           <a class="btn ghost" href="embed/${g.slug}.html">EMBED</a>
         </div>
       </article>`
@@ -344,6 +505,7 @@ const cards = published
           <p class="blurb">${esc(g.blurb)}</p>
           <p class="stats">${g.levels} levels · ${g.elements} elements verified · ~${g.minutes} min</p>
           <a class="btn" href="play/${g.slug}/">PLAY NOW</a>
+          ${apkButton(g.slug)}
         </div>
       </article>`
   )
@@ -400,6 +562,11 @@ ${covers.has('neon-coil') ? `<meta property="og:image" content="thumb/neon-coil.
   .btn:hover{transform:translateY(-1px)}
   .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);margin-left:8px}
   .btn.ghost:hover{color:var(--text);border-color:rgba(255,255,255,.22)}
+  /* Cards carry up to three buttons now, and at 280px they have to be allowed to wrap. */
+  .btn{margin-top:6px}
+  .btn.apk{border-color:rgba(240,192,74,.5);color:var(--gold)}
+  .btn.apk:hover{color:#ffe08a;border-color:rgba(240,192,74,.9);background:rgba(240,192,74,.08)}
+  .btn.apk span{opacity:.6;font-weight:400;margin-left:5px}
   .note{margin-top:18px;padding:16px 18px;border-radius:var(--r);background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:13.5px;color:var(--muted)}
   code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.35);padding:2px 6px;border-radius:5px;color:var(--leaf2)}
   pre{margin-top:10px;padding:14px;border-radius:14px;background:rgba(0,0,0,.4);overflow-x:auto;font-size:12px;color:var(--text)}
@@ -451,6 +618,46 @@ ${extras.map((x) => `    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGame
 `;
 
 await writeFile(join(OUT, 'index.html'), index, 'utf8');
+
+/**
+ * A machine-readable list of everything published, written for `tools/build-apks.mjs`.
+ *
+ * The APK builder needs a title, a package id, a palette for the launcher icon and an
+ * orientation for each game. It could import the generator and recompute all of that, but then
+ * two tools would be deriving the same facts by two routes and would eventually disagree —
+ * an APK whose icon or package id did not match the game on the site. Publishing already knows
+ * every one of these, so it writes them down and the builder reads them.
+ *
+ * `orientation` is the one value that is not simply copied through: the site expresses shape as
+ * a CSS aspect ratio, and Android wants a screenOrientation, so the taller-than-wide ones become
+ * portrait here rather than in the builder.
+ */
+const manifest = [
+  ...extras.map((x) => {
+    const [w, h] = String(x.aspect || '16/9').split('/').map(Number);
+    return {
+      slug: x.slug,
+      title: x.title,
+      kind: x.wasm ? 'wasm' : 'native',
+      packageId: `com.factorialstudio.${x.slug.replace(/-/g, '')}`,
+      palette: x.palette,
+      orientation: h > w ? 'sensorPortrait' : 'sensorLandscape',
+    };
+  }),
+  ...published.map((g) => ({
+    slug: g.slug,
+    title: g.title,
+    kind: 'generated',
+    packageId: g.packageId,
+    palette: g.palette,
+    orientation: 'sensorLandscape',
+  })),
+];
+await writeFile(join(OUT, 'games.json'), JSON.stringify(manifest, null, 2), 'utf8');
+
+// The install page. Written after the APK copy above, so it survives it.
+if (apks.size) await writeFile(join(OUT, 'apk', 'index.html'), installPage(manifest), 'utf8');
+
 await rm(TMP, { recursive: true, force: true });
 
 const engineSize = (await stat(join(OUT, 'engine', 'game.js'))).size;

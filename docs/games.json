@@ -1,0 +1,189 @@
+[
+  {
+    "slug": "neon-coil",
+    "title": "NEON COIL",
+    "kind": "wasm",
+    "packageId": "com.factorialstudio.neoncoil",
+    "palette": {
+      "bg": "#09081a",
+      "bgAccent": "#131130",
+      "ground": "#2a1155",
+      "player": "#00e8ff",
+      "obstacle": "#ff3ea5",
+      "accent": "#ffca40"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "block-bloom",
+    "title": "BLOCK BLOOM",
+    "kind": "wasm",
+    "packageId": "com.factorialstudio.blockbloom",
+    "palette": {
+      "bg": "#121628",
+      "bgAccent": "#1e2546",
+      "ground": "#2f3a68",
+      "player": "#5aaaff",
+      "obstacle": "#ff74a8",
+      "accent": "#ffce56"
+    },
+    "orientation": "sensorPortrait"
+  },
+  {
+    "slug": "ivory-gambit",
+    "title": "IVORY GAMBIT",
+    "kind": "native",
+    "packageId": "com.factorialstudio.ivorygambit",
+    "palette": {
+      "bg": "#1d1710",
+      "bgAccent": "#33261a",
+      "ground": "#4b3221",
+      "player": "#efdfc0",
+      "obstacle": "#a9784f",
+      "accent": "#e0a44a"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "emberwake",
+    "title": "EMBERWAKE",
+    "kind": "native",
+    "packageId": "com.factorialstudio.emberwake",
+    "palette": {
+      "bg": "#140b1e",
+      "bgAccent": "#2a1b40",
+      "ground": "#7ec850",
+      "player": "#ff9b4a",
+      "obstacle": "#6f7f8c",
+      "accent": "#ffd27a"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "feather-and-fetch",
+    "title": "FEATHER & FETCH",
+    "kind": "native",
+    "packageId": "com.factorialstudio.featherandfetch",
+    "palette": {
+      "bg": "#14210f",
+      "bgAccent": "#2a3f22",
+      "ground": "#5da84a",
+      "player": "#f0c04a",
+      "obstacle": "#8a5f36",
+      "accent": "#ffe08a"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "rhythm-dash-glitch-circuit",
+    "title": "GLITCH CIRCUIT",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.g126eijf",
+    "palette": {
+      "bg": "#0b0620",
+      "bgAccent": "#1e0a3c",
+      "ground": "#2a1155",
+      "player": "#00f0ff",
+      "obstacle": "#ff2d95",
+      "accent": "#ffe14d",
+      "text": "#f0eaff"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "endless-runner-cinder-sprint",
+    "title": "CINDER SPRINT",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.gisv7r9",
+    "palette": {
+      "bg": "#1a0703",
+      "bgAccent": "#3d1005",
+      "ground": "#5c1a06",
+      "player": "#ffd166",
+      "obstacle": "#ff3b30",
+      "accent": "#ff8c42",
+      "text": "#ffe8d6"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "tap-to-fly-void-runner",
+    "title": "VOID RUNNER",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.g38xz1x",
+    "palette": {
+      "bg": "#050514",
+      "bgAccent": "#12123a",
+      "ground": "#232358",
+      "player": "#7dd3fc",
+      "obstacle": "#f472b6",
+      "accent": "#fde047",
+      "text": "#e8eaff"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "snake-wild-dash",
+    "title": "WILD DASH",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.g6stgc8",
+    "palette": {
+      "bg": "#06281c",
+      "bgAccent": "#0a5a42",
+      "ground": "#11704f",
+      "player": "#a3d977",
+      "obstacle": "#ff7043",
+      "accent": "#fbbf24",
+      "text": "#eaf5ee"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "2048-merge-ink-edge",
+    "title": "INK EDGE",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.g1bwkzc9",
+    "palette": {
+      "bg": "#0f0f10",
+      "bgAccent": "#1d1d21",
+      "ground": "#2b2b31",
+      "player": "#fafafa",
+      "obstacle": "#ff4136",
+      "accent": "#9e9e9e",
+      "text": "#f5f5f5"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "memory-match-thorn-sprint",
+    "title": "THORN SPRINT",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.gsdhzrf",
+    "palette": {
+      "bg": "#06281c",
+      "bgAccent": "#0a5a42",
+      "ground": "#11704f",
+      "player": "#a3d977",
+      "obstacle": "#ff7043",
+      "accent": "#fbbf24",
+      "text": "#eaf5ee"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
+    "slug": "sliding-puzzle-frost-drift",
+    "title": "FROST DRIFT",
+    "kind": "generated",
+    "packageId": "com.factorialstudio.forge.g1jai7kc",
+    "palette": {
+      "bg": "#071a2b",
+      "bgAccent": "#0d3550",
+      "ground": "#14507a",
+      "player": "#e0f7ff",
+      "obstacle": "#ff6b6b",
+      "accent": "#66e0ff",
+      "text": "#eaf6ff"
+    },
+    "orientation": "sensorLandscape"
+  }
+]
