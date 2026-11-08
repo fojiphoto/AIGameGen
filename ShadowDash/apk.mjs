@@ -1,0 +1,12 @@
+import { cp, mkdir, writeFile } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+const root=resolve(import.meta.dirname,'..');
+const stage=join(root,'artifacts-shadowdash');
+await mkdir(stage,{recursive:true});
+await cp(join(import.meta.dirname,'build','web'),join(stage,'bundle'),{recursive:true});
+await writeFile(join(stage,'config.json'),JSON.stringify({meta:{title:'Shadow Dash Ninja Quest',packageId:'com.factorialstudio.shadowdash',orientation:'sensorLandscape'},theme:{palette:{bg:'#111525',bgAccent:'#263349',ground:'#32434b',player:'#ef7153',obstacle:'#776785',accent:'#f9d48b',text:'#fff2d9'}}},null,2));
+const result=spawnSync(process.execPath,[join(root,'tools','build-apk.mjs'),stage],{cwd:root,stdio:'inherit',windowsHide:true});
+if(result.status!==0)process.exit(result.status??1);
+await mkdir(join(import.meta.dirname,'build','android'),{recursive:true});
+await cp(join(stage,'Shadow-Dash-Ninja-Quest.apk'),join(import.meta.dirname,'build','android','Shadow-Dash-Ninja-Quest.apk'));

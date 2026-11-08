@@ -60,6 +60,18 @@ const SHOWCASE = [
  */
 const NATIVE_EXTRAS = [
   {
+    slug: 'shadow-dash',
+    title: 'SHADOW DASH: Ninja Quest',
+    label: 'Hand-built',
+    family: 'ninja action platformer',
+    from: join(ROOT, 'ShadowDash', 'build', 'web'),
+    blurb: 'Leap across three cursed realms, chain sword strikes, and break the Hollow Warden’s seal.',
+    stats: 'Three chapters · six enemy types · one boss',
+    note: 'Keyboard or touch. Landscape recommended.',
+    palette: { bg: '#111525', bgAccent: '#263349', ground: '#32434b', player: '#ef7153', obstacle: '#776785', accent: '#f9d48b' },
+    aspect: '16/9',
+  },
+  {
     slug: 'neon-coil',
     title: 'NEON COIL',
     label: 'Hand-built',
@@ -584,7 +596,7 @@ ${covers.has('neon-coil') ? `<meta property="og:image" content="thumb/neon-coil.
     approach, no generator in front of it. Two are Python compiled to WebAssembly; IVORY GAMBIT
     is TypeScript, and its whole chess engine — board, rules, search — fits in 150 KB.
   </p>
-  <p><span class="pill live">${published.length} TEMPLATES</span>${extras.length ? ` <span class="pill live">${extras.length} HAND-BUILT</span>` : ''} <span class="pill">EVERY LEVEL VERIFIED FINISHABLE</span> <span class="pill">NO PLUGINS</span></p>
+  <p><span class="pill live">${published.length} TEMPLATES</span>${extras.length ? ` <span class="pill live">${extras.length} HAND-BUILT</span>` : ''} <span class="pill">TEMPLATE LEVELS VERIFIED FINISHABLE</span> <span class="pill">NO PLUGINS</span></p>
 
   <h2>PLAY</h2>
   <div class="grid">${extraCards}${cards}

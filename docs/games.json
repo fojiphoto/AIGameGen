@@ -1,5 +1,20 @@
 [
   {
+    "slug": "shadow-dash",
+    "title": "SHADOW DASH: Ninja Quest",
+    "kind": "native",
+    "packageId": "com.factorialstudio.shadowdash",
+    "palette": {
+      "bg": "#111525",
+      "bgAccent": "#263349",
+      "ground": "#32434b",
+      "player": "#ef7153",
+      "obstacle": "#776785",
+      "accent": "#f9d48b"
+    },
+    "orientation": "sensorLandscape"
+  },
+  {
     "slug": "neon-coil",
     "title": "NEON COIL",
     "kind": "wasm",

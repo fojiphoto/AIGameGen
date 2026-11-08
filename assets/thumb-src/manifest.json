@@ -1,5 +1,10 @@
 [
   {
+    "slug": "shadow-dash",
+    "top": [17, 21, 37],
+    "bottom": [118, 61, 77]
+  },
+  {
     "slug": "neon-coil",
     "top": [
       26,

@@ -1,0 +1,4 @@
+import { EnemyKind } from './types';
+export const PLAYER = { speed:290,sprint:365,gravity:1850,jump:690,dashSpeed:780,dashDuration:.17,dashCooldown:.85,coyote:.12,buffer:.14 };
+export const ATTACKS=[{damage:1,range:91,duration:.28,start:.055,end:.18},{damage:1.35,range:108,duration:.32,start:.065,end:.22},{damage:2.1,range:132,duration:.43,start:.09,end:.29}];
+export const ENEMIES:Record<EnemyKind,{hp:number;speed:number;w:number;h:number;reward:number;range:number;cooldown:number}>={walker:{hp:3,speed:62,w:38,h:56,reward:5,range:55,cooldown:1.6},swordsman:{hp:4,speed:110,w:39,h:59,reward:7,range:73,cooldown:1.25},guardian:{hp:7,speed:48,w:52,h:65,reward:10,range:81,cooldown:2.1},raven:{hp:2,speed:135,w:44,h:35,reward:5,range:300,cooldown:2},plant:{hp:5,speed:0,w:54,h:68,reward:8,range:140,cooldown:2.3},mage:{hp:4,speed:45,w:44,h:60,reward:8,range:440,cooldown:2},boss:{hp:60,speed:45,w:118,h:150,reward:100,range:600,cooldown:2.6}};
