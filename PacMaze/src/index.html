@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080915">
+  <meta name="description" content="A classic maze chase across 40 progressively harder boards. Play with a keyboard or touch.">
+  <title>PAC MAZE · 40-Level Arcade</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="game.js"></script>
+</head>
+<body>
+  <main class="cabinet">
+    <header class="marquee">
+      <span class="kicker">FACTORIAL STUDIO / ARCADE</span>
+      <h1>PAC<span> MAZE</span></h1>
+      <span class="tag">40-LEVEL EDITION</span>
+    </header>
+    <section class="scoreboard" aria-label="Scoreboard">
+      <div><span>SCORE</span><strong id="score">000000</strong></div>
+      <div><span>HIGH SCORE</span><strong id="high">000000</strong></div>
+      <div><span id="life-label">LIVES</span><strong id="lives" aria-labelledby="life-label">◕◕◕</strong></div>
+    </section>
+    <section class="playfield" aria-label="Maze playfield">
+      <canvas id="maze" aria-label="Blue arcade maze with pellets and four ghosts"></canvas>
+      <div id="status" aria-live="polite" hidden></div>
+      <div id="overlay"></div>
+    </section>
+    <aside class="right">
+      <div class="board-info">
+        <span class="kicker">BOARD <b id="board">01</b> / 40</span>
+        <strong id="board-name">Cabinet One</strong>
+        <span id="district">Blue Line</span>
+        <div class="meter" role="presentation"><i id="progress"></i></div>
+        <span id="remaining">240 DOTS LEFT</span>
+      </div>
+      <div class="tools">
+        <button id="pause" aria-label="Pause" disabled>Ⅱ <span>PAUSE</span></button>
+        <button id="mute" aria-label="Toggle sound" aria-pressed="false">♪ <span>SOUND</span></button>
+      </div>
+      <div class="controls" aria-label="Directional controls">
+        <button data-dir="0" aria-label="Move up">▲</button>
+        <button data-dir="1" aria-label="Move left">◀</button>
+        <span class="pad-center" aria-hidden="true">●</span>
+        <button data-dir="3" aria-label="Move right">▶</button>
+        <button data-dir="2" aria-label="Move down">▼</button>
+      </div>
+      <p class="legend">ARROWS / WASD <span>·</span> SWIPE <span>·</span> ESC TO PAUSE</p>
+    </aside>
+  </main>
+</body>
+</html>

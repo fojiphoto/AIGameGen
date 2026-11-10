@@ -27,6 +27,8 @@
     "publish:featherfetch": "node tools/publish-featherfetch.mjs",
     "build:featherfetch": "node FeatherFetch/build.mjs",
     "test:featherfetch": "node FeatherFetch/build.mjs --test && node --test \"FeatherFetch/test/*.test.mjs\"",
+    "build:pacmaze": "node PacMaze/build.mjs",
+    "test:pacmaze": "node PacMaze/build.mjs --test && node --test PacMaze/test/game.test.mjs",
     "build:chess": "node IvoryGambit/build.mjs",
     "test:chess": "node IvoryGambit/build.mjs --test && node --test \"IvoryGambit/test/*.test.mjs\"",
     "build:engine": "node packages/engine-runner/build.mjs",

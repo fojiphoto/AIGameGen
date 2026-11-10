@@ -60,6 +60,20 @@ const SHOWCASE = [
  */
 const NATIVE_EXTRAS = [
   {
+    slug: 'pac-maze',
+    title: 'PAC MAZE',
+    label: 'Hand-built',
+    family: 'maze chase',
+    from: join(ROOT, 'PacMaze', 'build', 'web'),
+    blurb: 'Eat every dot, turn the tables with a power pellet, and clear forty boards that '
+         + 'tighten the chase as you go. Four ghosts, each hunting you a different way.',
+    stats: 'TypeScript + Canvas · 30 KB total · all 40 boards cleared by an automated run',
+    note: 'Starts instantly. Keyboard, swipe or the on-screen pad. Plays offline once loaded.',
+    palette: { bg: '#080915', bgAccent: '#191b3c', ground: '#465eff', player: '#ffdf2b', obstacle: '#ff334f', accent: '#ffe4be' },
+    // Portrait, like its phone layout — and this is what turns the APK portrait as well.
+    aspect: '9/16',
+  },
+  {
     slug: 'shadow-dash',
     title: 'SHADOW DASH: Ninja Quest',
     label: 'Hand-built',

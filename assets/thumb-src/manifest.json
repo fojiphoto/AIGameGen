@@ -1,5 +1,10 @@
 [
   {
+    "slug": "pac-maze",
+    "top": [22, 28, 92],
+    "bottom": [6, 7, 18]
+  },
+  {
     "slug": "shadow-dash",
     "top": [17, 21, 37],
     "bottom": [118, 61, 77]

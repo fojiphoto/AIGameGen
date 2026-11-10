@@ -1,5 +1,20 @@
 [
   {
+    "slug": "pac-maze",
+    "title": "PAC MAZE",
+    "kind": "native",
+    "packageId": "com.factorialstudio.pacmaze",
+    "palette": {
+      "bg": "#080915",
+      "bgAccent": "#191b3c",
+      "ground": "#465eff",
+      "player": "#ffdf2b",
+      "obstacle": "#ff334f",
+      "accent": "#ffe4be"
+    },
+    "orientation": "sensorPortrait"
+  },
+  {
     "slug": "shadow-dash",
     "title": "SHADOW DASH: Ninja Quest",
     "kind": "native",
