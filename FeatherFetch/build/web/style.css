@@ -105,6 +105,12 @@ body::before {
 #game {
   position: fixed; inset: 0;
   display: grid; place-items: center;
+  /*
+   * One cell exactly the size of the window. Without this the single grid row is sized by its
+   * tallest item, so a menu taller than the window grew the row past the bottom of the screen —
+   * pushing the canvas down with it, and leaving the panel's own max-height nothing to measure.
+   */
+  grid-template: 100% / 100%;
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
            env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -399,3 +405,30 @@ html[data-portrait="1"] #rotate {
 .harvest-btn.gone { opacity: 0; pointer-events: none; transform: translateX(-50%) scale(.9); }
 
 .infinite { font-size: 1.5em; font-weight: 800; color: var(--gold-2); line-height: 1; }
+
+/* ── short screens ─────────────────────────────────────────────────────────── */
+
+/*
+ * A phone held sideways is about 390 px tall, and 344 under the arcade's bar. The menu was built
+ * for a taller window — title, tagline, six 46 px buttons and a footer come to ~480 px — so on a
+ * short screen it ran off the bottom and could only be reached by scrolling the panel.
+ *
+ * Below 500 px of height everything tightens, and wherever the screen is wide enough (it always is
+ * when a phone is sideways) the buttons go two to a row with PLAY across the top. That halves the
+ * stack and fits the whole menu on screen down to ~300 px.
+ */
+@media (max-height: 500px) {
+  .ui { padding: 10px; }
+  .panel { padding: 14px 16px; }
+  .title { font-size: 26px; }
+  .tagline { margin-top: 4px; margin-bottom: 10px; }
+  .stack { gap: 7px; }
+  .btn { min-height: 38px; padding: 8px 14px; }
+  .foot { margin-top: 10px; }
+  .hint { margin-top: 8px; }
+}
+@media (max-height: 500px) and (min-width: 560px) {
+  .panel:not(.wide) { width: min(560px, 100%); }
+  .stack { grid-template-columns: 1fr 1fr; }
+  .stack > .btn.primary { grid-column: 1 / -1; }
+}

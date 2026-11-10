@@ -2,3 +2,10 @@
 
 /* Preserve world proportions on portrait windows and ultrawide displays. */
 canvas{object-fit:contain;background:#090e16}
+
+/*
+ * A phone held sideways: ~390 px tall, 344 under the arcade's bar. The 540 px tier above still
+ * left the menu 385 px tall — two lines of 58 px title alone are 99 px — so the control strip at
+ * the bottom fell off the screen. This tier fits the whole menu in ~295 px.
+ */
+@media(max-height:420px){#overlay{padding:10px 6vw}.brand{font-size:38px;margin:6px 0}.subtitle{margin-bottom:10px}.menu nav{gap:6px}.menu nav button{padding:7px}.menu nav .primary{padding:10px;font-size:16px}.menu footer{margin-top:8px}}

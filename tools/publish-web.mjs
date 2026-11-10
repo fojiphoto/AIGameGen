@@ -82,9 +82,6 @@ const NATIVE_EXTRAS = [
     palette: { bg: '#080915', bgAccent: '#191b3c', ground: '#465eff', player: '#ffdf2b', obstacle: '#ff334f', accent: '#ffe4be' },
     // Portrait, like its phone layout — and this is what turns the APK portrait as well.
     aspect: '9/16',
-    // On a desktop play page its own desktop layout fits a 4:3 box exactly; at 9:16 it would
-    // drop into the phone layout and scroll inside the frame.
-    frame: '4/3',
   },
   {
     slug: 'shadow-dash',
@@ -143,10 +140,6 @@ const NATIVE_EXTRAS = [
     note: 'Starts instantly — no runtime to download. Plays offline once loaded.',
     palette: { bg: '#1d1710', bgAccent: '#33261a', ground: '#4b3221', player: '#efdfc0', obstacle: '#a9784f', accent: '#e0a44a' },
     aspect: '16/9',
-    // Its menu is a fixed ~585 px tall. A 16:9 box on a 1440x900 desktop is 511 px, which cuts
-    // off the title and SETTINGS; 4:3 fits it there and on anything larger — and a chess board is
-    // square anyway, so the game itself loses nothing.
-    frame: '4/3',
   },
   {
     slug: 'emberwake',

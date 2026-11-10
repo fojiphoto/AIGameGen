@@ -60,7 +60,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .scoreboard { grid-template-columns: repeat(3, 1fr); gap: 5px; }
   .scoreboard > div { padding: 6px 8px; }
   .scoreboard span { margin-bottom: 2px; }
-  .playfield { width: min(100%, calc((100dvh - 260px) * 28 / 31)); min-width: min(100%, 235px); justify-self: center; }
+  .playfield { width: min(100%, calc((100dvh - 304px) * 28 / 31)); min-width: min(100%, 235px); justify-self: center; }
   .right { grid-template-columns: minmax(88px, 1fr) auto minmax(65px, 1fr); gap: 5px; align-items: start; }
   .board-info { padding: 6px; gap: 4px; }
   .board-info strong { font-size: 11px; }
@@ -74,9 +74,26 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .cabinet { grid-template-columns: minmax(90px, 130px) minmax(0, auto) minmax(120px, 155px); grid-template-rows: auto 1fr; gap: 7px 15px; }
   .marquee h1 { font-size: 25px; margin: 0; }
   .marquee .kicker, .tag { display: none; }
-  .playfield { width: min(52vw, calc((100dvh - 57px) * 28 / 31)); }
+  .playfield { width: min(52vw, calc((100dvh - 64px) * 28 / 31)); }
   .scoreboard > div, .board-info { padding: 6px 8px; }
   .board-info { gap: 4px; }
   .panel { padding: 10px; }
   .panel button { padding-block: 6px; }
+}
+/*
+ * Fit on short screens. Everything above was sized for windows of 650 px and up; under the arcade's
+ * bar a phone gives ~618 px upright and ~344 px sideways. Upright, the board's height reservation
+ * (above) was 38 px short of what the rest of the layout takes, so the d-pad's down button fell off
+ * the bottom. Sideways, the side column outgrew the board and the menu panel needed 275 px of a 257
+ * px board. These rules only tighten spacing and drop the keyboard legend and district name — the
+ * two things the upright phone layout already drops.
+ */
+@media (orientation: landscape) and (max-height: 420px) {
+  #district, .legend { display: none; }
+  .controls button { min-height: 34px; min-width: 34px; }
+  .tools button { min-height: 34px; }
+  #overlay { padding: 6px; }
+  .panel h2 { margin: 3px 0 5px; }
+  .panel p { margin: 5px 0 8px; }
+  .ghost-row { margin: 2px 0 6px; }
 }

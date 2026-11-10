@@ -4,24 +4,44 @@
  *   docs/play/<slug>/index.html   this page — the URL every card and every shared link opens
  *   docs/game/<slug>/             the game itself, untouched, loaded here in an iframe
  *
+ * LAYOUT
+ *
+ *   ┌────────────────────────── bar: back · logo · now playing · fullscreen ──────────────────────┐
+ *   │ ad 160×600 │                         game frame                              │ ad 160×600 │
+ *   │  (sticky)  │   description · Android app                                     │  (sticky)  │
+ *   │            │   recently played  ▸ ▸ ▸ ▸ ▸   (one horizontal row)             │            │
+ *   │            │   more games       ▸ ▸ ▸ ▸ ▸                                     │            │
+ *
+ * The page runs edge to edge. The side columns hold an ad and nothing else, and everything that is
+ * not the game sits *below* it, so the game frame gets the whole width between the two ads and the
+ * whole height under the bar. An earlier version capped the page at 1520 px and kept a 728×90
+ * leaderboard on screen under the game; on a 1903×920 window that left 190 px of empty margin on
+ * each side and cost the game a quarter of its height.
+ *
  * WHY THE GAME LIVES IN AN IFRAME RATHER THAN ON THIS PAGE
  * Every game was built to own its whole window: its own resize logic, its own key handlers on
- * `window`, its own full-page styles. Putting ad slots and a game list *around* it on the same
- * page would mean editing fourteen games, two of which are Python compiled to WebAssembly. An
- * iframe gives each game exactly the window it was built for, at whatever size this page decides,
- * and leaves the game's own files byte-identical — which is also what the APK builder and the
- * embed pages need, since neither should ever ship a page with ads on it.
+ * `window`, its own full-page styles. An iframe gives each one exactly the window it was built for,
+ * at whatever size this page decides, and leaves the game's own files byte-identical — which is
+ * also what the APK builder and the embed pages need, since neither should ship a page with ads.
+ *
+ * THE FRAME SIZE
+ * On anything wider than a phone the frame takes all of it: the full width between the ads and the
+ * full height under the bar, whatever the game's shape. Every game here was built for a browser
+ * window of any shape and letterboxes itself against its own background, so a frame that does not
+ * match the game's ratio costs nothing — while a frame held to the ratio wastes height. It did: on
+ * a 1366×768 laptop a 16:9 box stopped at 553 px with 688 available, and SHADOW DASH's control
+ * strip fell off the bottom of its menu.
+ *
+ * On a phone the same rule applies with less chrome: a slimmer bar and no margin, so the game has
+ * the screen. A 16:9 box was tried there first and measured worse for every landscape game — at
+ * 355×200 their menus and canvases ran off the frame, because each was built for a whole phone
+ * screen, not for a strip a fifth of one.
  *
  * WHY THE ADS ARE PLACEHOLDERS UNTIL CONFIGURED
  * AdSense needs a publisher id and one slot id per unit, and an `<ins class="adsbygoogle">` without
  * them throws on every page load. Until `ADSENSE.client` is set the slots render as clearly
  * labelled empty boxes of the exact sizes the real units will take, so the layout is final now and
  * switching ads on later moves nothing.
- *
- * Sizes are the standard IAB units AdSense fills most readily: a 160×600 skyscraper on the left, a
- * 300×250 rectangle at the top of the right rail, and a 728×90 leaderboard under the game (320×100
- * on a phone). None of them touches the game frame — an ad that a player can hit while aiming or
- * steering is both an accidental click and an AdSense policy violation.
  */
 
 /**
@@ -29,12 +49,16 @@
  *
  *   client   'ca-pub-0000000000000000'
  *   slots    one ad-unit id per position, from AdSense → Ads → By ad unit
+ *            left, right  the two 160×600 skyscrapers beside the game
+ *            inline       shown only where the screen is too narrow for side columns (tablets,
+ *                         phones): a 728×90 / 320×100 under the game description, so those
+ *                         visitors are not the one audience with no ad at all
  *
  * Leave `client` empty and every slot stays a placeholder.
  */
 export const ADSENSE = {
   client: '',
-  slots: { left: '', right: '', bottom: '' },
+  slots: { left: '', right: '', inline: '' },
 };
 
 /** Where the game files are published, relative to docs/. */
@@ -42,28 +66,22 @@ export const GAME_DIR = 'game';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-/** `16/9` → 1.7778. Defaults to landscape, which is what every generated template is. */
-const ratio = (aspect) => {
-  const [w, h] = String(aspect || '16/9').split('/').map(Number);
-  return w > 0 && h > 0 ? +(w / h).toFixed(4) : 16 / 9;
-};
-
 const UNITS = {
   left: { w: 160, h: 600, label: '160 × 600' },
-  right: { w: 300, h: 250, label: '300 × 250' },
-  bottom: { w: 728, h: 90, label: '728 × 90', small: '320 × 100' },
+  right: { w: 160, h: 600, label: '160 × 600' },
+  inline: { w: 728, h: 90, label: '728 × 90', small: '320 × 100' },
 };
 
 function adSlot(pos) {
   const u = UNITS[pos];
   const live = ADSENSE.client && ADSENSE.slots[pos];
   if (live) {
-    // The leaderboard is the one unit that has to change shape on a phone, so it is the one left
-    // responsive. The side units are fixed sizes because their columns are.
-    const style = pos === 'bottom'
+    // The inline unit is the one that has to change shape between a tablet and a phone, so it is
+    // the one left responsive. The skyscrapers are fixed sizes because their columns are.
+    const style = pos === 'inline'
       ? 'display:block;width:100%;height:90px'
       : `display:inline-block;width:${u.w}px;height:${u.h}px`;
-    const fmt = pos === 'bottom' ? ' data-ad-format="horizontal" data-full-width-responsive="true"' : '';
+    const fmt = pos === 'inline' ? ' data-ad-format="horizontal" data-full-width-responsive="true"' : '';
     return `<div class="ad ad-${pos}">
         <span class="ad-tag">Advertisement</span>
         <ins class="adsbygoogle" style="${style}" data-ad-client="${esc(ADSENSE.client)}" data-ad-slot="${esc(ADSENSE.slots[pos])}"${fmt}></ins>
@@ -82,34 +100,15 @@ function adSlot(pos) {
  */
 export function portalPage(game, catalog, { covers, apks, fileSize }) {
   const others = catalog.filter((g) => g.slug !== game.slug);
-  /**
-   * Two shapes, because a game's page is not always the same shape on a desktop as on a phone.
-   *
-   * `aspect` is the game's own shape — it also decides the APK's orientation. `frame`, when a
-   * game sets it, is the shape of the box on a desktop play page. PAC MAZE is the case that needs
-   * it: at 9:16 on a desktop its page drops into its phone layout and scrolls inside the frame, at
-   * 4:3 it uses its desktop layout and fits with nothing to spare.
-   *
-   * On a phone a portrait game gets the whole screen under the bar instead of a box of a fixed
-   * shape, which is what game portals do there: the game first, the ad a scroll below it.
-   */
-  const ar = ratio(game.frame || game.aspect);
-  const tallOnPhone = ratio(game.aspect) < 1;
   const apkSize = apks.get(game.slug);
 
-  // Only what the list needs, inlined: one page, no extra request, works from a file host.
-  const list = catalog.map((g) => ({
-    slug: g.slug, title: g.title, family: g.family, cover: covers.has(g.slug),
-    bg: g.palette?.bg || '#111', accent: g.palette?.accent || '#888',
-  }));
-
-  const item = (g) => `
-        <a class="item" href="../${g.slug}/" data-slug="${g.slug}">
-          ${covers.has(g.slug)
-            ? `<img src="../../thumb/small/${g.slug}.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />`
-            : `<span class="swatch" style="background:linear-gradient(135deg,${esc(g.palette?.bg)},${esc(g.palette?.accent)})"></span>`}
-          <span class="meta"><b>${esc(g.title)}</b><i>${esc(g.family)}</i></span>
-        </a>`;
+  const card = (g) => `
+          <a class="card" href="../${g.slug}/" data-slug="${g.slug}">
+            ${covers.has(g.slug)
+              ? `<img src="../../thumb/small/${g.slug}.jpg" alt="" width="384" height="216" loading="lazy" decoding="async" />`
+              : `<span class="swatch" style="background:linear-gradient(135deg,${esc(g.palette?.bg)},${esc(g.palette?.accent)})"></span>`}
+            <b>${esc(g.title)}</b><i>${esc(g.family)}</i>
+          </a>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -129,16 +128,16 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
 ` : ''}<style>
   :root{--ink:#06281c;--panel:rgba(0,0,0,.24);--gold:#fbbf24;--leaf2:#a3d977;--text:#eaf5ee;--muted:#a9c6b5;
     --line:rgba(255,255,255,.08);--f-disp:'Bungee',cursive;--f-body:'Fredoka',sans-serif;
-    /* Everything on screen that is not the game, top to bottom: bar, gaps, leaderboard. The stage
-       is sized from what is left, so the leaderboard is always visible without scrolling. */
-    --chrome:214px}
+    /* Everything above and below the frame that must stay on screen: the bar and the page's own
+       top and bottom padding. The frame takes the rest of the height. */
+    --bar:56px;--pad:12px;--chrome:calc(var(--bar) + var(--pad) * 2)}
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{background:var(--ink)}
   body{font-family:var(--f-body);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
     background-image:radial-gradient(1100px 520px at 78% -12%,rgba(124,179,66,.14),transparent 60%);background-attachment:fixed}
   a{color:inherit}
 
-  .bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;height:56px;padding:0 18px;
+  .bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;height:var(--bar);padding:0 var(--pad);
     background:rgba(4,30,21,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
   .back{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 10px;border-radius:999px;
     border:1px solid var(--line);background:rgba(255,255,255,.06);font-weight:600;font-size:14px;text-decoration:none}
@@ -152,26 +151,23 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
     color:var(--text);font:600 13px var(--f-body);cursor:pointer}
   .fs:hover{background:rgba(255,255,255,.12)}
 
-  .portal{display:grid;grid-template-columns:160px minmax(0,1fr) 300px;gap:18px;align-items:start;
-    max-width:1520px;margin:0 auto;padding:14px 18px 48px}
-  .rail{display:flex;flex-direction:column;gap:16px}
-  .rail.left{position:sticky;top:70px}
+  /* Edge to edge: the two ad columns sit against the sides of the window, the game takes the rest. */
+  .portal{display:grid;grid-template-columns:160px minmax(0,1fr) 160px;gap:var(--pad);align-items:start;padding:var(--pad)}
+  .rail{position:sticky;top:calc(var(--bar) + var(--pad))}
   .center{min-width:0;display:flex;flex-direction:column;gap:14px}
 
-  .stage{--ar:${ar};position:relative;margin:0 auto;aspect-ratio:var(--ar);
-    width:min(100%, calc((100vh - var(--chrome)) * var(--ar)));
-    width:min(100%, calc((100dvh - var(--chrome)) * var(--ar)));
-    border-radius:16px;overflow:hidden;background:#000;box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 0 1px var(--line)}
+  /* All the space there is: full width between the ads, full height under the bar. */
+  .stage{position:relative;width:100%;height:calc(100vh - var(--chrome));height:calc(100dvh - var(--chrome));
+    border-radius:14px;overflow:hidden;background:#000;box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 0 1px var(--line)}
   .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 
   .ad{position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto;max-width:100%}
   .ad-tag{position:absolute;top:-1px;left:50%;transform:translateY(-100%) translateX(-50%);font-size:10px;letter-spacing:.6px;
     text-transform:uppercase;color:var(--muted);opacity:.6;white-space:nowrap;padding-bottom:2px}
-  .ad.empty .ad-tag{position:static;transform:none;opacity:.55}
+  .ad.empty .ad-tag{position:static;transform:none;opacity:.55;writing-mode:horizontal-tb}
   .ad.empty{border:1px dashed rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.025)}
-  .ad-left{width:160px;height:600px}
-  .ad-right{width:300px;height:250px}
-  .ad-bottom{width:min(100%,728px);height:90px}
+  .ad-left,.ad-right{width:160px;height:600px;max-height:calc(100vh - var(--chrome))}
+  .ad-inline{display:none;width:min(100%,728px);height:90px}
   .ad:not(.empty){margin-top:14px}
   .sm{display:none}
 
@@ -179,48 +175,46 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
     background:var(--panel);border:1px solid var(--line)}
   .info h1{font-family:var(--f-disp);font-size:20px;line-height:1.1}
   .info .fam{font-size:11px;color:var(--leaf2);text-transform:uppercase;letter-spacing:.5px}
-  .info .blurb{flex-basis:100%;font-size:14px;color:var(--muted);max-width:80ch}
+  .info .blurb{flex-basis:100%;font-size:14px;color:var(--muted);max-width:90ch}
   .info .title{flex:1;min-width:200px}
   .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px;padding:10px 18px;border-radius:999px;
     text-decoration:none;border:1px solid rgba(251,191,36,.5);color:var(--gold)}
   .btn:hover{background:rgba(251,191,36,.08)}
   .btn span{opacity:.6;font-weight:400}
 
-  .list{padding:14px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
-  .list h2{font-family:var(--f-disp);font-size:12px;letter-spacing:.6px;color:var(--muted);margin:4px 2px 10px}
-  .list h2 + .items{margin-bottom:14px}
-  .items{display:flex;flex-direction:column;gap:6px}
-  .item{display:flex;align-items:center;gap:11px;padding:6px;border-radius:12px;text-decoration:none}
-  .item:hover{background:rgba(255,255,255,.07)}
-  .item img,.item .swatch{flex:none;width:96px;height:54px;border-radius:9px;object-fit:cover;background:#000;display:block}
-  .meta{min-width:0;display:flex;flex-direction:column}
-  .meta b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .meta i{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hint{font-size:12.5px;color:var(--muted);opacity:.8;padding:2px 4px 14px}
+  /* Game rows: one horizontal line each, scrolling sideways when there are more than fit. */
+  .shelf h2{font-family:var(--f-disp);font-size:12px;letter-spacing:.6px;color:var(--muted);margin:2px 2px 10px}
+  .row{display:grid;grid-auto-flow:column;grid-auto-columns:200px;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;
+    padding:2px 2px 10px;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+  .card{display:flex;flex-direction:column;gap:2px;padding:6px;border-radius:14px;text-decoration:none;scroll-snap-align:start;
+    background:var(--panel);border:1px solid var(--line);min-width:0}
+  .card:hover{background:rgba(255,255,255,.07)}
+  .card img,.card .swatch{display:block;width:100%;aspect-ratio:16/9;height:auto;border-radius:9px;object-fit:cover;background:#000;margin-bottom:6px}
+  .card b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+  .card i{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px 2px}
+  .hint{font-size:12.5px;color:var(--muted);opacity:.8;padding:0 2px 6px}
   [hidden]{display:none !important}
 
-  /* No room for the skyscraper: drop it, keep the right rail. */
-  @media (max-width:1200px){
-    .portal{grid-template-columns:minmax(0,1fr) 300px}
-    .rail.left{display:none}
-  }
-  /* Tablet: one column — game, leaderboard, info, then the rail underneath. Two columns at this
-     width left the game 655×368, short enough to cut the bottom off a game's own menu; one column
-     gives it the full width instead. The list goes into a grid so it does not become one long
-     strip. */
-  @media (max-width:1080px){
+  /* Too narrow for two 160 px columns beside a game worth playing: drop them, and put the one
+     inline unit under the description instead. */
+  @media (max-width:1100px){
     .portal{grid-template-columns:minmax(0,1fr)}
-    .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
-    .ad-right{order:2}
+    .rail{display:none}
+    .ad-inline{display:flex}
   }
-  /* Phone. */
+  /* Phone: the game gets the screen. A slimmer bar, no margin round the frame, no rounding. */
   @media (max-width:880px){
-    :root{--chrome:196px}
-    .portal{padding:12px 12px 40px}
-    .ad-bottom{width:min(100%,320px);height:100px}
+    :root{--bar:46px;--pad:0px}
+    .bar{padding:0 8px;gap:8px}
+    .back,.fs{height:32px}
+    .portal{padding:0}
+    .center{gap:12px}
+    .stage{border-radius:0;box-shadow:none}
+    .info,.shelf{margin:0 10px}
+    .ad-inline{width:min(100%,320px);height:100px}
     .lg{display:none}.sm{display:inline}
-    .logo{display:none}${tallOnPhone ? `
-    .stage{width:100%;aspect-ratio:auto;height:calc(100vh - 92px);height:calc(100dvh - 92px)}` : ''}
+    .logo{display:none}
+    .row{grid-auto-columns:160px}
   }
   @media (max-width:420px){ .back span{display:none} .back{padding:0 10px} }
 </style>
@@ -245,31 +239,37 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
       <iframe id="game" title="${esc(game.title)}"
               allow="autoplay; fullscreen; gamepad; cross-origin-isolated" allowfullscreen></iframe>
     </div>
-      ${adSlot('bottom')}
+
     <section class="info">
       <div class="title"><h1>${esc(game.title)}</h1><p class="fam">${esc(game.family)}</p></div>
       ${apkSize ? `<a class="btn" href="../../apk/${game.slug}.apk" download>Get the Android app <span>${fileSize(apkSize)}</span></a>` : ''}
       <p class="blurb">${esc(game.blurb)}</p>
     </section>
+
+      ${adSlot('inline')}
+
+    <section class="shelf" aria-label="Recently played">
+      <h2>RECENTLY PLAYED</h2>
+      <div class="row" id="recent"></div>
+      <p class="hint" id="recent-hint">Games you play will show up here.</p>
+    </section>
+
+    <section class="shelf" aria-label="More games">
+      <h2>MORE GAMES</h2>
+      <div class="row" id="more">${others.map(card).join('')}
+      </div>
+    </section>
   </main>
 
   <aside class="rail right">
       ${adSlot('right')}
-    <section class="list" aria-label="More games">
-      <h2>RECENTLY PLAYED</h2>
-      <div class="items" id="recent"></div>
-      <p class="hint" id="recent-hint">Games you play will show up here.</p>
-      <h2>MORE GAMES</h2>
-      <div class="items" id="more">${others.map(item).join('')}
-      </div>
-    </section>
   </aside>
 </div>
 
 <script>
 (function () {
   var SLUG = ${JSON.stringify(game.slug)};
-  var GAMES = ${JSON.stringify(list)};
+  var KNOWN = ${JSON.stringify(catalog.map((g) => g.slug))};
   var KEY = 'forge.arcade.recent.v1';
   var frame = document.getElementById('game');
 
@@ -283,17 +283,18 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
   var recent = [];
   try { recent = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
   if (!Array.isArray(recent)) recent = [];
-  var known = {};
-  GAMES.forEach(function (g) { known[g.slug] = true; });
-  recent = recent.filter(function (s) { return typeof s === 'string' && known[s] && s !== SLUG; });
+  recent = recent.filter(function (s) { return typeof s === 'string' && KNOWN.indexOf(s) >= 0 && s !== SLUG; });
 
-  var recentBox = document.getElementById('recent');
+  var recentRow = document.getElementById('recent');
   var more = document.getElementById('more');
-  recent.slice(0, 6).forEach(function (s) {
+  recent.slice(0, 10).forEach(function (s) {
     var el = more.querySelector('[data-slug="' + s + '"]');
-    if (el) recentBox.appendChild(el);      // moved, not copied: a game is listed once
+    if (el) recentRow.appendChild(el);      // moved, not copied: a game is listed once
   });
-  document.getElementById('recent-hint').hidden = recentBox.children.length > 0;
+  var any = recentRow.children.length > 0;
+  recentRow.hidden = !any;
+  document.getElementById('recent-hint').hidden = any;
+  if (!more.children.length) more.parentNode.hidden = true;
 
   try { localStorage.setItem(KEY, JSON.stringify([SLUG].concat(recent).slice(0, 12))); } catch (e) {}
 

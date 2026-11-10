@@ -41,10 +41,10 @@ OUT = ROOT / "assets" / "thumbs"
 
 W, H = 800, 450
 
-#: The small copy for game lists — the play page's sidebar shows thirteen of them at 96x54. Sized
+#: The small copy for game lists — the play page's rows show thirteen of them at 200x113. Sized
 #: for a 2x screen and saved as JPEG: the full covers are ~140 KB of PNG each, and loading all of
 #: them beside a game would put ~2 MB on the wire in front of the game itself.
-SMALL = (256, 144)
+SMALL = (384, 216)
 SMALL_OUT = OUT / "small"
 #: Inset of the screenshot panel from the cover's edges. Generous, so the ground reads as a
 #: deliberate frame rather than as a gap the image failed to fill.

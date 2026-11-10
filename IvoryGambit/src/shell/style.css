@@ -660,3 +660,28 @@ input[type="range"] {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface-edge); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── short screens ─────────────────────────────────────────────────────────── */
+
+/*
+ * The main menu is a fixed ~585 px: two-line title, tagline, seven 47 px buttons and a footer. Any
+ * window shorter than that — a 1280x720 laptop under a browser's toolbars, a phone held sideways —
+ * cut the title off the top and SETTINGS off the bottom, and the only way to reach them was to
+ * scroll a menu that does not look scrollable.
+ *
+ * Below 620 px everything tightens; where the window is wide enough the buttons go two to a row
+ * with PLAY across the top, which brings the whole menu to ~320 px.
+ */
+@media (max-height: 620px) {
+  #screen-menu { padding: 14px 20px; }
+  .menu-inner .title { font-size: clamp(26px, 7vh, 44px); }
+  .menu-inner .tagline { margin-top: 6px; }
+  .menu-buttons { margin-top: 16px; gap: 8px; }
+  .menu-buttons .btn { padding: 9px 20px; min-height: 38px; }
+  .menu-foot { margin-top: 12px; }
+}
+@media (max-height: 620px) and (min-width: 600px) {
+  .menu-inner { width: min(600px, 100%); }
+  .menu-buttons { grid-template-columns: 1fr 1fr; }
+  .menu-buttons > :first-child { grid-column: 1 / -1; }
+}
