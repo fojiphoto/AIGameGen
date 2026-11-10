@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit + user-scalable=no: a game must not pinch-zoom or double-tap-zoom -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0f0f10" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>INK EDGE</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%; height: 100%; overflow: hidden;
+        background: #0f0f10;
+        /* block the pull-to-refresh and text-selection gestures that ruin touch games */
+        overscroll-behavior: none;
+        -webkit-user-select: none; user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+      #game { width: 100%; height: 100%; display: grid; place-items: center; }
+      #game canvas { display: block; }
+      #boot {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        font: 600 13px system-ui, Roboto, sans-serif; letter-spacing: 0.16em;
+        color: #f5f5f5; background: #0f0f10; z-index: 5;
+      }
+      #boot.gone { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="boot">LOADING</div>
+    <div id="game"></div>
+    <script>
+      window.__FORGE_NO_TELEMETRY__ = true;
+      window.__GAME__ = {"schemaVersion":1,"genre":"merge_2048","meta":{"title":"INK EDGE","tagline":"merge to the target · 20 levels","packageId":"com.factorialstudio.forge.g1bwkzc9","seed":4187126986},"theme":{"palette":{"bg":"#0f0f10","bgAccent":"#1d1d21","ground":"#2b2b31","player":"#fafafa","obstacle":"#ff4136","accent":"#9e9e9e","text":"#f5f5f5"},"styleTags":["minimal","monochrome","geometric"],"mood":"calm","spritePack":null},"progression":{"levels":20,"mode":"levels_only","endlessUnlockAt":20,"reliefLevels":[8,15]},"copy":{"levelNames":["Margin 01","Ruling 02","Blank 03","Endpaper 04 — Rising","Offcut 05 — Rising","Baseline 06 — Steady","Gutter 07 — Steady","Crosshatch 08 — Breather","Margin 09 — Faster","Ruling 10 — Faster","Blank 11 — Tight","Endpaper 12 — Tight","Offcut 13 — Sharp","Baseline 14 — Sharp","Gutter 15 — Relief","Crosshatch 16 — Overdrive","Margin 17 — Overdrive","Ruling 18 — Critical","Blank 19 — No Mercy","Endpaper 20 — Final Run"],"tutorial":"SWIPE or use ARROW KEYS to merge","winMsg":"LEVEL CLEAR","loseMsg":"BOARD FULL","endlessMsg":"ALL LEVELS CLEAR"},"levels":[{"index":1,"name":"Margin 01","size":4,"cells":[0,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":2,"name":"Ruling 02","size":4,"cells":[0,0,2,0,0,0,0,0,0,0,0,4,0,0,0,0],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":3,"name":"Blank 03","size":4,"cells":[0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":4,"name":"Endpaper 04 — Rising","size":4,"cells":[0,0,0,0,0,0,0,0,0,2,0,0,0,4,0,0],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":5,"name":"Offcut 05 — Rising","size":4,"cells":[0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":6,"name":"Baseline 06 — Steady","size":4,"cells":[0,0,0,0,0,0,0,0,0,0,0,2,0,0,4,0],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":7,"name":"Gutter 07 — Steady","size":4,"cells":[0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,2],"target":32,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":8,"name":"Crosshatch 08 — Breather","size":4,"cells":[0,0,0,0,0,0,0,2,0,2,0,0,0,0,0,0],"target":64,"moveLimit":0,"spawnFourChance":0.1,"isRelief":true},{"index":9,"name":"Margin 09 — Faster","size":4,"cells":[0,2,0,0,0,0,0,0,0,0,0,0,0,2,0,0],"target":64,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":10,"name":"Ruling 10 — Faster","size":4,"cells":[0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,4],"target":64,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":11,"name":"Blank 11 — Tight","size":4,"cells":[0,0,0,0,0,0,0,2,0,2,0,0,0,0,0,0],"target":64,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":12,"name":"Endpaper 12 — Tight","size":4,"cells":[0,0,0,0,0,0,0,0,0,0,0,2,0,0,2,0],"target":128,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":13,"name":"Offcut 13 — Sharp","size":4,"cells":[2,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0],"target":128,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":14,"name":"Baseline 14 — Sharp","size":4,"cells":[0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,0],"target":128,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":15,"name":"Gutter 15 — Relief","size":4,"cells":[0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,2],"target":128,"moveLimit":0,"spawnFourChance":0.1,"isRelief":true},{"index":16,"name":"Crosshatch 16 — Overdrive","size":4,"cells":[0,0,0,0,0,0,0,2,0,0,0,0,0,2,0,0],"target":256,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":17,"name":"Margin 17 — Overdrive","size":4,"cells":[2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"target":512,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":18,"name":"Ruling 18 — Critical","size":4,"cells":[0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0],"target":512,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":19,"name":"Blank 19 — No Mercy","size":4,"cells":[2,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0],"target":512,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false},{"index":20,"name":"Endpaper 20 — Final Run","size":4,"cells":[0,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0],"target":1024,"moveLimit":0,"spawnFourChance":0.1,"isRelief":false}],"board":{"size":4,"spawnFourChance":0.1},"difficulty":{"curve":"easeInQuad","targetStart":32,"targetEnd":1024,"moveSlackStart":0,"moveSlackEnd":0},"buildId":"kzs66l"};
+    </script>
+    <script src="../../engine/game.js"></script>
+    <script>
+      // hide the boot splash once Phaser has produced a canvas
+      (function () {
+        var tries = 0;
+        var iv = setInterval(function () {
+          if (document.querySelector('#game canvas') || ++tries > 100) {
+            var b = document.getElementById('boot');
+            if (b) b.className = 'gone';
+            clearInterval(iv);
+          }
+        }, 50);
+      })();
+    </script>
+  </body>
+</html>

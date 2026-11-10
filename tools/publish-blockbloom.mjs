@@ -12,7 +12,7 @@
  *   2. Compile the game to WebAssembly with pygbag, which writes a static folder into
  *      BlockBloom/build/web.
  *   3. Dress the page pygbag generated — fix its aspect ratio, replace its loading screen.
- *   4. Rebuild the arcade site, which copies that folder into docs/play/block-bloom/ and rewrites
+ *   4. Rebuild the arcade site, which copies that folder into docs/game/block-bloom/ and rewrites
  *      the index. This step deletes docs/ first, so it must come last.
  *
  * Then commit and push. GitHub Pages serves docs/ on the default branch and updates within a
@@ -168,11 +168,11 @@ await dressPage();
 
 await run(process.execPath, [join(ROOT, 'tools', 'publish-web.mjs')], ROOT, 'rebuild the arcade');
 
-const bundle = join(ROOT, 'docs', 'play', 'block-bloom', 'blockbloom.tar.gz');
+const bundle = join(ROOT, 'docs', 'game', 'block-bloom', 'blockbloom.tar.gz');
 const size = (await stat(bundle)).size;
 
 console.log(`\n${OK}${BOLD}ready to publish${RESET}`);
-console.log(`  game bundle   docs/play/block-bloom/  (${(size / 1024).toFixed(0)} KB)`);
+console.log(`  game bundle   docs/game/block-bloom/  (${(size / 1024).toFixed(0)} KB)`);
 console.log(`\n  commit and push, then it is live:`);
 console.log(`    ${DIM}git add -A && git commit -m "Update BLOCK BLOOM" && git push${RESET}`);
 console.log(`\n  play          https://fojiphoto.github.io/AIGameGen/play/block-bloom/`);

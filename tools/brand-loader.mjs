@@ -33,7 +33,7 @@ const PRELOAD_CLOSE = '<!-- forge-preload:end -->';
  * Where the published site lives, as a root-absolute path.
  *
  * GitHub Pages serves a project site under the repository name, so pages sit at
- * `/AIGameGen/play/<slug>/` rather than at the domain root. The runtime base has to include that
+ * `/AIGameGen/game/<slug>/` rather than at the domain root. The runtime base has to include that
  * segment — see `useLocalRuntime` for why it cannot be page-relative — and it is set here rather
  * than guessed, with an override for anyone serving the same build somewhere else.
  *

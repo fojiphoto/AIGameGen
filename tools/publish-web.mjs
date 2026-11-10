@@ -13,7 +13,9 @@
  *
  *   docs/index.html            arcade page listing every game
  *   docs/engine/game.js        ONE copy of the engine, shared by every game
- *   docs/play/<slug>/index.html
+ *   docs/play/<slug>/index.html   the play page: the game framed by ad slots, a back button and a
+ *                                 recently-played list (tools/portal-page.mjs)
+ *   docs/game/<slug>/             the game itself, exactly as built, loaded by the play page
  *   docs/embed/<slug>.html     bare page for iframing into another site
  *   docs/.nojekyll             stop Pages running Jekyll over it
  *
@@ -29,6 +31,7 @@ import { buildAnyGame } from '@forge/generation/genres';
 import { bundleGame } from '@forge/bundler';
 import { GENRE_REGISTRY, IMPLEMENTED_GENRES } from '@forge/schema/genres';
 import { MIRROR_DIR, PYGBAG_VERSION } from './mirror-runtime.mjs';
+import { portalPage, GAME_DIR } from './portal-page.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const OUT = join(ROOT, 'docs');
@@ -37,6 +40,13 @@ const TMP = join(ROOT, 'artifacts', '_publish');
 const THUMBS = join(ROOT, 'assets', 'thumbs');
 /** Installable builds, one signed APK per slug. Built by `node tools/build-apks.mjs`. */
 const APKS = join(ROOT, 'assets', 'apk');
+
+/**
+ * The "embedding these on another page" snippets under the game grid. Switched off for now at the
+ * owner's request; the embed pages themselves are still published and the EMBED buttons still
+ * work, so turning this back on is a one-word change.
+ */
+const SHOW_EMBED_SNIPPETS = false;
 
 /** One showcase game per template, each with a distinct theme. */
 const SHOWCASE = [
@@ -72,6 +82,9 @@ const NATIVE_EXTRAS = [
     palette: { bg: '#080915', bgAccent: '#191b3c', ground: '#465eff', player: '#ffdf2b', obstacle: '#ff334f', accent: '#ffe4be' },
     // Portrait, like its phone layout — and this is what turns the APK portrait as well.
     aspect: '9/16',
+    // On a desktop play page its own desktop layout fits a 4:3 box exactly; at 9:16 it would
+    // drop into the phone layout and scroll inside the frame.
+    frame: '4/3',
   },
   {
     slug: 'shadow-dash',
@@ -130,6 +143,10 @@ const NATIVE_EXTRAS = [
     note: 'Starts instantly — no runtime to download. Plays offline once loaded.',
     palette: { bg: '#1d1710', bgAccent: '#33261a', ground: '#4b3221', player: '#efdfc0', obstacle: '#a9784f', accent: '#e0a44a' },
     aspect: '16/9',
+    // Its menu is a fixed ~585 px tall. A 16:9 box on a 1440x900 desktop is 511 px, which cuts
+    // off the title and SETTINGS; 4:3 fits it there and on anything larger — and a chess board is
+    // square anyway, so the game itself loses nothing.
+    frame: '4/3',
   },
   {
     slug: 'emberwake',
@@ -276,6 +293,7 @@ try {
 await rm(OUT, { recursive: true, force: true });
 await mkdir(join(OUT, 'engine'), { recursive: true });
 await mkdir(join(OUT, 'play'), { recursive: true });
+await mkdir(join(OUT, GAME_DIR), { recursive: true });
 await mkdir(join(OUT, 'embed'), { recursive: true });
 // Pages runs Jekyll by default, which skips paths beginning with an underscore and slows
 // every deploy down for no benefit here.
@@ -411,7 +429,7 @@ for (const item of SHOWCASE) {
   }
 
   const html = await readFile(join(tmpDir, 'index.html'), 'utf8');
-  const pageDir = join(OUT, 'play', slug);
+  const pageDir = join(OUT, GAME_DIR, slug);
   await mkdir(pageDir, { recursive: true });
 
   // Point at the shared engine, and switch telemetry off — there is no API behind a static
@@ -462,7 +480,7 @@ for (const x of NATIVE_EXTRAS) {
     console.log(`       build it with:  npm run publish:${x.slug.replace(/-/g, '')}`);
     continue;
   }
-  const dest = join(OUT, 'play', x.slug);
+  const dest = join(OUT, GAME_DIR, x.slug);
   await cp(x.from, dest, { recursive: true });
 
   /**
@@ -488,7 +506,7 @@ for (const x of NATIVE_EXTRAS) {
 </style>
 </head>
 <body>
-<iframe src="../play/${x.slug}/" title="${esc(x.title)}"
+<iframe src="../${GAME_DIR}/${x.slug}/" title="${esc(x.title)}"
         allow="autoplay; fullscreen; gamepad; cross-origin-isolated"
         allowfullscreen></iframe>
 </body>
@@ -616,6 +634,7 @@ ${covers.has('neon-coil') ? `<meta property="og:image" content="thumb/neon-coil.
   <div class="grid">${extraCards}${cards}
   </div>
 
+${SHOW_EMBED_SNIPPETS ? `
   <div class="note">
     <b>Embedding these on another page.</b> Every game here has a frameless version made for
     iframes, so it plays inside your own page instead of navigating away from it:
@@ -630,6 +649,7 @@ ${extras.map((x) => `    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGame
         title="${esc(x.title)}"&gt;&lt;/iframe&gt;</pre>`).join('\n')}` : ''}
   </div>
 
+` : ''}
   <div class="note">
     <b>Why "verified finishable" is the interesting part.</b> Levels are generated
     procedurally, then each one is simulated headlessly before it ships — jump arcs, gap
@@ -644,6 +664,18 @@ ${extras.map((x) => `    <pre>&lt;iframe src="https://fojiphoto.github.io/AIGame
 `;
 
 await writeFile(join(OUT, 'index.html'), index, 'utf8');
+
+/**
+ * One play page per game, in arcade order, so "more games" on every page lists them the way the
+ * arcade does. The game files themselves were published under game/ above; these pages only
+ * frame them.
+ */
+const catalog = [...extras, ...published];
+for (const g of catalog) {
+  await mkdir(join(OUT, 'play', g.slug), { recursive: true });
+  await writeFile(join(OUT, 'play', g.slug, 'index.html'), portalPage(g, catalog, { covers, apks, fileSize }), 'utf8');
+}
+console.log(`  [32mok[0m   ${'Play pages'.padEnd(16)} ${catalog.length} framed games  [2mplay/ → ${GAME_DIR}/[0m`);
 
 /**
  * A machine-readable list of everything published, written for `tools/build-apks.mjs`.

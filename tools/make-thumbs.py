@@ -40,6 +40,12 @@ SRC = ROOT / "assets" / "thumb-src"
 OUT = ROOT / "assets" / "thumbs"
 
 W, H = 800, 450
+
+#: The small copy for game lists — the play page's sidebar shows thirteen of them at 96x54. Sized
+#: for a 2x screen and saved as JPEG: the full covers are ~140 KB of PNG each, and loading all of
+#: them beside a game would put ~2 MB on the wire in front of the game itself.
+SMALL = (256, 144)
+SMALL_OUT = OUT / "small"
 #: Inset of the screenshot panel from the cover's edges. Generous, so the ground reads as a
 #: deliberate frame rather than as a gap the image failed to fill.
 PAD_Y = 26
@@ -132,6 +138,7 @@ def main() -> int:
 
     manifest = json.loads((SRC / "manifest.json").read_text(encoding="utf-8"))
     OUT.mkdir(parents=True, exist_ok=True)
+    SMALL_OUT.mkdir(parents=True, exist_ok=True)
 
     made, missing = 0, []
     for entry in manifest:
@@ -142,6 +149,7 @@ def main() -> int:
             continue
         cover = compose(shot, tuple(entry["top"]), tuple(entry["bottom"]))
         pygame.image.save(cover, str(OUT / f"{slug}.png"))
+        pygame.image.save(pygame.transform.smoothscale(cover, SMALL), str(SMALL_OUT / f"{slug}.jpg"))
         made += 1
         print(f"  made  {slug}.png")
 

@@ -12,7 +12,8 @@
  * `docs/apk/` and links from each card.
  *
  * WHY IT BUILDS FROM docs/ RATHER THAN FROM SOURCE
- * `docs/play/<slug>/` is the exact bytes the website serves. Building the APK from anywhere else
+ * `docs/game/<slug>/` is the exact bytes the website serves inside its play page.
+ * (`docs/play/<slug>/` is that play page — ad slots, a game list — and must never be packaged.) Building the APK from anywhere else
  * would mean the app and the site could drift — someone plays the web version, downloads the
  * APK, and gets a different game. Reading the published folder makes that impossible by
  * construction, and it means this tool knows nothing about how any individual game is built.
@@ -36,6 +37,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, writeFile, readFile, readdir, rm, cp, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { GAME_DIR } from './portal-page.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DOCS = join(ROOT, 'docs');
@@ -93,8 +95,8 @@ await mkdir(OUT, { recursive: true });
  * game-specific in this whole tool is in this function.
  */
 async function stageBundle(game, bundleDir) {
-  const src = join(DOCS, 'play', game.slug);
-  if (!existsSync(src)) throw new Error(`not published: docs/play/${game.slug}/`);
+  const src = join(DOCS, GAME_DIR, game.slug);
+  if (!existsSync(src)) throw new Error(`not published: docs/${GAME_DIR}/${game.slug}/`);
 
   await cp(src, bundleDir, { recursive: true });
 

@@ -1,57 +1,267 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <!-- viewport-fit + user-scalable=no: a game must not pinch-zoom or double-tap-zoom -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
-    <meta name="theme-color" content="#0b0620" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <title>GLITCH CIRCUIT</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body {
-        width: 100%; height: 100%; overflow: hidden;
-        background: #0b0620;
-        /* block the pull-to-refresh and text-selection gestures that ruin touch games */
-        overscroll-behavior: none;
-        -webkit-user-select: none; user-select: none;
-        -webkit-touch-callout: none;
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
-      }
-      #game { width: 100%; height: 100%; display: grid; place-items: center; }
-      #game canvas { display: block; }
-      #boot {
-        position: fixed; inset: 0; display: grid; place-items: center;
-        font: 600 13px system-ui, Roboto, sans-serif; letter-spacing: 0.16em;
-        color: #f0eaff; background: #0b0620; z-index: 5;
-      }
-      #boot.gone { display: none; }
-    </style>
-  </head>
-  <body>
-    <div id="boot">LOADING</div>
-    <div id="game"></div>
-    <script>
-      window.__FORGE_NO_TELEMETRY__ = true;
-      window.__GAME__ = {"schemaVersion":1,"genre":"rhythm_dash","meta":{"title":"GLITCH CIRCUIT","tagline":"one tap · one life · 10 levels","packageId":"com.factorialstudio.forge.g126eijf","seed":958487248},"theme":{"palette":{"bg":"#0b0620","bgAccent":"#1e0a3c","ground":"#2a1155","player":"#00f0ff","obstacle":"#ff2d95","accent":"#ffe14d","text":"#f0eaff"},"styleTags":["neon","cyberpunk","synthwave"],"mood":"tense","spritePack":null},"progression":{"levels":10,"mode":"levels_only","endlessUnlockAt":10,"reliefLevels":[4,8]},"copy":{"levelNames":["Firewall 01","Backdoor 02","Uplink 03 — Rising","Sector 04 — Steady","Nightline 05 — Faster","Grid 06 — Tight","Substation 07 — Sharp","Datastream 08 — Overdrive","Firewall 09 — Critical","Backdoor 10 — Final Run"],"tutorial":"TAP to play","winMsg":"LEVEL CLEAR","loseMsg":"TRY AGAIN","endlessMsg":"ALL LEVELS CLEAR"},"levels":[{"index":1,"name":"Firewall 01","speed":340,"lengthPx":8409,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"block","x":1172,"w":60,"h":24,"y":0},{"kind":"block","x":1614,"w":60,"h":24,"y":0},{"kind":"spike","x":2247,"w":20,"h":27,"y":0},{"kind":"block","x":2861,"w":60,"h":24,"y":0},{"kind":"spike","x":3494,"w":20,"h":27,"y":0},{"kind":"spike","x":4982,"w":20,"h":27,"y":0},{"kind":"spike","x":5746,"w":20,"h":27,"y":0},{"kind":"spike","x":6148,"w":20,"h":27,"y":0},{"kind":"spike","x":6751,"w":20,"h":27,"y":0},{"kind":"spike","x":7153,"w":20,"h":27,"y":0}],"platforms":[],"gaps":[],"pads":[],"gravityFlip":false,"newFeatures":[],"isRelief":false,"jumpsNeeded":10},{"index":2,"name":"Backdoor 02","speed":371,"lengthPx":9629,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"spike","x":1194,"w":22,"h":27,"y":0},{"kind":"spike","x":2466,"w":22,"h":27,"y":0},{"kind":"spike","x":2905,"w":22,"h":27,"y":0},{"kind":"block","x":3574,"w":66,"h":24,"y":0},{"kind":"spike","x":6020,"w":22,"h":27,"y":0},{"kind":"spike","x":6459,"w":22,"h":27,"y":0},{"kind":"spike","x":6898,"w":22,"h":27,"y":0},{"kind":"block","x":7347,"w":66,"h":24,"y":0},{"kind":"spike","x":7819,"w":22,"h":27,"y":0},{"kind":"block","x":8269,"w":66,"h":24,"y":0}],"platforms":[],"gaps":[],"pads":[],"gravityFlip":false,"newFeatures":[],"isRelief":false,"jumpsNeeded":10},{"index":3,"name":"Uplink 03 — Rising","speed":402,"lengthPx":13408,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"spike","x":1464,"w":24,"h":27,"y":0},{"kind":"spike","x":2177,"w":24,"h":27,"y":0},{"kind":"block","x":3140,"w":71,"h":24,"y":0},{"kind":"block","x":4138,"w":71,"h":24,"y":0},{"kind":"block","x":4661,"w":71,"h":24,"y":0},{"kind":"block","x":5184,"w":71,"h":24,"y":0},{"kind":"spike","x":8119,"w":24,"h":27,"y":0},{"kind":"block","x":8607,"w":71,"h":24,"y":0},{"kind":"spike","x":9106,"w":24,"h":27,"y":0},{"kind":"spike","x":9379,"w":24,"h":27,"y":0},{"kind":"spike","x":9819,"w":24,"h":27,"y":0},{"kind":"block","x":10104,"w":71,"h":24,"y":0},{"kind":"spike","x":10532,"w":24,"h":27,"y":0},{"kind":"block","x":10817,"w":71,"h":24,"y":0},{"kind":"spike","x":11257,"w":24,"h":27,"y":0},{"kind":"spike","x":11721,"w":24,"h":27,"y":0},{"kind":"spike","x":11994,"w":24,"h":27,"y":0}],"platforms":[{"x":6967,"w":214,"h":29}],"gaps":[],"pads":[],"gravityFlip":false,"newFeatures":["platforms"],"isRelief":false,"jumpsNeeded":18},{"index":4,"name":"Sector 04 — Steady","speed":433,"lengthPx":11871,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"spike","x":1514,"w":26,"h":27,"y":0},{"kind":"spike","x":3460,"w":26,"h":27,"y":0},{"kind":"block","x":3985,"w":77,"h":24,"y":0},{"kind":"spike","x":7608,"w":26,"h":27,"y":0},{"kind":"spike","x":8107,"w":26,"h":27,"y":0},{"kind":"spike","x":8401,"w":26,"h":27,"y":0},{"kind":"block","x":8901,"w":77,"h":24,"y":0},{"kind":"spike","x":9438,"w":26,"h":27,"y":0},{"kind":"block","x":9746,"w":77,"h":24,"y":0},{"kind":"spike","x":10219,"w":26,"h":27,"y":0},{"kind":"spike","x":10975,"w":26,"h":27,"y":0},{"kind":"spike","x":11269,"w":26,"h":27,"y":0}],"platforms":[{"x":6366,"w":230,"h":29}],"gaps":[],"pads":[],"gravityFlip":false,"newFeatures":[],"isRelief":true,"jumpsNeeded":13},{"index":5,"name":"Nightline 05 — Faster","speed":464,"lengthPx":16723,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"spike","x":1784,"w":27,"h":27,"y":0},{"kind":"spike","x":5392,"w":27,"h":27,"y":0},{"kind":"spike","x":5707,"w":27,"h":27,"y":0},{"kind":"spike","x":10166,"w":27,"h":27,"y":0},{"kind":"spike","x":10481,"w":27,"h":27,"y":0},{"kind":"spike","x":10989,"w":27,"h":27,"y":0},{"kind":"spike","x":11304,"w":27,"h":27,"y":0},{"kind":"spike","x":12471,"w":27,"h":27,"y":0},{"kind":"spike","x":12772,"w":27,"h":27,"y":0},{"kind":"spike","x":13074,"w":27,"h":27,"y":0},{"kind":"spike","x":13623,"w":27,"h":27,"y":0},{"kind":"block","x":13952,"w":82,"h":24,"y":0},{"kind":"spike","x":14460,"w":27,"h":27,"y":0},{"kind":"block","x":16010,"w":82,"h":24,"y":0}],"platforms":[{"x":9343,"w":247,"h":29}],"gaps":[{"x":3587,"w":93},{"x":4739,"w":93},{"x":6220,"w":93},{"x":11818,"w":93}],"pads":[],"gravityFlip":false,"newFeatures":["gaps"],"isRelief":false,"jumpsNeeded":19},{"index":6,"name":"Grid 06 — Tight","speed":496,"lengthPx":18642,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"block","x":1338,"w":88,"h":24,"y":0},{"kind":"block","x":3039,"w":88,"h":24,"y":0},{"kind":"spike","x":3670,"w":29,"h":27,"y":0},{"kind":"spike","x":4241,"w":29,"h":27,"y":0},{"kind":"block","x":4593,"w":88,"h":24,"y":0},{"kind":"spike","x":5649,"w":29,"h":27,"y":0},{"kind":"block","x":6001,"w":88,"h":24,"y":0},{"kind":"spike","x":6529,"w":29,"h":27,"y":0},{"kind":"spike","x":6866,"w":29,"h":27,"y":0},{"kind":"spike","x":11119,"w":29,"h":27,"y":0},{"kind":"spike","x":11706,"w":29,"h":27,"y":0},{"kind":"spike","x":13685,"w":29,"h":27,"y":0},{"kind":"spike","x":14023,"w":29,"h":27,"y":0},{"kind":"spike","x":15445,"w":29,"h":27,"y":0},{"kind":"spike","x":15782,"w":29,"h":27,"y":0},{"kind":"spike","x":17029,"w":29,"h":27,"y":0},{"kind":"spike","x":17366,"w":29,"h":27,"y":0},{"kind":"spike","x":17923,"w":29,"h":27,"y":0}],"platforms":[{"x":14565,"w":264,"h":29}],"gaps":[{"x":12283,"w":100},{"x":12987,"w":100},{"x":16331,"w":100}],"pads":[],"gravityFlip":false,"newFeatures":[],"isRelief":false,"jumpsNeeded":22},{"index":7,"name":"Substation 07 — Sharp","speed":527,"lengthPx":21938,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"block","x":3178,"w":93,"h":24,"y":0},{"kind":"spike","x":6824,"w":31,"h":27,"y":0},{"kind":"spike","x":7183,"w":31,"h":27,"y":0},{"kind":"spike","x":7759,"w":31,"h":27,"y":0},{"kind":"spike","x":8117,"w":31,"h":27,"y":0},{"kind":"block","x":11748,"w":125,"h":49,"y":0},{"kind":"block","x":13150,"w":93,"h":24,"y":0},{"kind":"spike","x":13804,"w":31,"h":27,"y":0},{"kind":"spike","x":14147,"w":31,"h":27,"y":0},{"kind":"spike","x":14490,"w":31,"h":27,"y":0},{"kind":"spike","x":19304,"w":31,"h":27,"y":0},{"kind":"spike","x":19912,"w":31,"h":27,"y":0},{"kind":"spike","x":20271,"w":31,"h":27,"y":0},{"kind":"spike","x":20847,"w":31,"h":27,"y":0},{"kind":"spike","x":21205,"w":31,"h":27,"y":0}],"platforms":[{"x":5889,"w":280,"h":29},{"x":15113,"w":280,"h":29}],"gaps":[{"x":4400,"w":106},{"x":5148,"w":106},{"x":16048,"w":162},{"x":16927,"w":106},{"x":17675,"w":106},{"x":18416,"w":162}],"pads":[{"x":11467,"w":93,"boost":1.5}],"gravityFlip":false,"newFeatures":["pads"],"isRelief":false,"jumpsNeeded":23},{"index":8,"name":"Datastream 08 — Overdrive","speed":558,"lengthPx":20832,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"block","x":3015,"w":99,"h":24,"y":0},{"kind":"spike","x":3708,"w":33,"h":27,"y":0},{"kind":"block","x":4103,"w":99,"h":24,"y":0},{"kind":"spike","x":4697,"w":33,"h":27,"y":0},{"kind":"spike","x":5077,"w":33,"h":27,"y":0},{"kind":"block","x":6314,"w":99,"h":24,"y":0},{"kind":"spike","x":7007,"w":33,"h":27,"y":0},{"kind":"spike","x":7386,"w":33,"h":27,"y":0},{"kind":"spike","x":11296,"w":33,"h":27,"y":0},{"kind":"spike","x":11676,"w":33,"h":27,"y":0},{"kind":"block","x":13342,"w":132,"h":49,"y":0},{"kind":"spike","x":15704,"w":33,"h":27,"y":0},{"kind":"spike","x":15784,"w":33,"h":27,"y":0},{"kind":"spike","x":17110,"w":33,"h":27,"y":0},{"kind":"spike","x":18938,"w":33,"h":27,"y":0},{"kind":"spike","x":19017,"w":33,"h":27,"y":0}],"platforms":[{"x":17367,"w":297,"h":33}],"gaps":[{"x":12293,"w":112}],"pads":[{"x":13045,"w":99,"boost":1.5}],"gravityFlip":false,"newFeatures":[],"isRelief":true,"jumpsNeeded":15},{"index":9,"name":"Firewall 09 — Critical","speed":589,"lengthPx":26029,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"block","x":1510,"w":104,"h":24,"y":0},{"kind":"spike","x":2886,"w":35,"h":27,"y":0},{"kind":"spike","x":5045,"w":35,"h":27,"y":0},{"kind":"spike","x":5725,"w":35,"h":27,"y":0},{"kind":"block","x":6143,"w":104,"h":24,"y":0},{"kind":"spike","x":7814,"w":35,"h":27,"y":0},{"kind":"spike","x":8215,"w":35,"h":27,"y":0},{"kind":"spike","x":8866,"w":35,"h":27,"y":0},{"kind":"spike","x":21188,"w":35,"h":27,"y":0},{"kind":"spike","x":21571,"w":35,"h":27,"y":0},{"kind":"spike","x":21954,"w":35,"h":27,"y":0},{"kind":"block","x":23905,"w":139,"h":49,"y":0},{"kind":"spike","x":24810,"w":35,"h":27,"y":0},{"kind":"spike","x":25211,"w":35,"h":27,"y":0}],"platforms":[{"x":6769,"w":313,"h":29},{"x":9138,"w":313,"h":33},{"x":16173,"w":313,"h":29},{"x":20143,"w":313,"h":29}],"gaps":[{"x":3572,"w":118},{"x":10747,"w":118},{"x":15344,"w":118},{"x":17218,"w":181},{"x":18193,"w":181},{"x":19168,"w":181},{"x":22651,"w":181}],"pads":[{"x":23591,"w":104,"boost":1.5}],"gravityFlip":false,"newFeatures":[],"isRelief":false,"jumpsNeeded":24},{"index":10,"name":"Backdoor 10 — Final Run","speed":620,"lengthPx":28352,"simDt":0.008333333333333333,"groundTop":423,"ceilingHeight":0,"obstacles":[{"kind":"spike","x":2231,"w":37,"h":27,"y":0},{"kind":"spike","x":3991,"w":37,"h":27,"y":0},{"kind":"spike","x":4706,"w":37,"h":27,"y":0},{"kind":"block","x":5146,"w":110,"h":24,"y":0},{"kind":"spike","x":5791,"w":37,"h":27,"y":0},{"kind":"spike","x":5879,"w":37,"h":27,"y":0},{"kind":"spike","x":6671,"w":37,"h":27,"y":0},{"kind":"spike","x":6759,"w":37,"h":27,"y":0},{"kind":"spike","x":7551,"w":37,"h":27,"y":0},{"kind":"spike","x":7639,"w":37,"h":27,"y":0},{"kind":"spike","x":8453,"w":37,"h":27,"y":0},{"kind":"spike","x":11525,"w":37,"h":27,"y":0},{"kind":"block","x":11965,"w":110,"h":24,"y":0},{"kind":"spike","x":17229,"w":37,"h":27,"y":0},{"kind":"spike","x":17317,"w":37,"h":27,"y":0},{"kind":"spike","x":18124,"w":37,"h":27,"y":0},{"kind":"spike","x":18527,"w":37,"h":27,"y":0},{"kind":"spike","x":18930,"w":37,"h":27,"y":0},{"kind":"spike","x":19671,"w":37,"h":27,"y":0},{"kind":"block","x":21277,"w":147,"h":49,"y":0},{"kind":"spike","x":23630,"w":37,"h":27,"y":0},{"kind":"spike","x":25969,"w":37,"h":27,"y":0},{"kind":"spike","x":26391,"w":37,"h":27,"y":0},{"kind":"spike","x":27069,"w":37,"h":27,"y":0},{"kind":"block","x":27509,"w":110,"h":24,"y":0}],"platforms":[{"x":8739,"w":330,"h":33},{"x":19957,"w":330,"h":33},{"x":22560,"w":367,"h":32},{"x":23916,"w":330,"h":33}],"gaps":[{"x":22230,"w":161},{"x":24943,"w":191}],"pads":[{"x":20947,"w":110,"boost":1.5}],"gravityFlip":false,"newFeatures":[],"isRelief":false,"jumpsNeeded":23}],"player":{"jumpVelocity":-680,"gravity":2300,"size":36,"hitboxScale":0.8,"rotationPerJump":180},"world":{"groundHeight":83,"ceilingHeight":0,"showGrid":true,"parallax":2,"showPulse":true},"difficulty":{"speedStart":340,"speedEnd":620,"curve":"linear","chunksStart":14,"chunksEnd":26,"tierStart":1,"tierEnd":5,"breatherRatioStart":0.42,"breatherRatioEnd":0.12},"buildId":"72ns7e"};
-    </script>
-    <script src="../../engine/game.js"></script>
-    <script>
-      // hide the boot splash once Phaser has produced a canvas
-      (function () {
-        var tries = 0;
-        var iv = setInterval(function () {
-          if (document.querySelector('#game canvas') || ++tries > 100) {
-            var b = document.getElementById('boot');
-            if (b) b.className = 'gone';
-            clearInterval(iv);
-          }
-        }, 50);
-      })();
-    </script>
-  </body>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>GLITCH CIRCUIT — play free online | Forge Arcade</title>
+<meta name="description" content="One tap, one life. No menus — die and you are already running again." />
+<meta property="og:title" content="GLITCH CIRCUIT — Forge Arcade" />
+<meta property="og:description" content="One tap, one life. No menus — die and you are already running again." />
+<meta property="og:image" content="../../thumb/rhythm-dash-glitch-circuit.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--ink:#06281c;--panel:rgba(0,0,0,.24);--gold:#fbbf24;--leaf2:#a3d977;--text:#eaf5ee;--muted:#a9c6b5;
+    --line:rgba(255,255,255,.08);--f-disp:'Bungee',cursive;--f-body:'Fredoka',sans-serif;
+    /* Everything on screen that is not the game, top to bottom: bar, gaps, leaderboard. The stage
+       is sized from what is left, so the leaderboard is always visible without scrolling. */
+    --chrome:214px}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--ink)}
+  body{font-family:var(--f-body);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh;
+    background-image:radial-gradient(1100px 520px at 78% -12%,rgba(124,179,66,.14),transparent 60%);background-attachment:fixed}
+  a{color:inherit}
+
+  .bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;height:56px;padding:0 18px;
+    background:rgba(4,30,21,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .back{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 10px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(255,255,255,.06);font-weight:600;font-size:14px;text-decoration:none}
+  .back:hover{background:rgba(255,255,255,.12)}
+  .back svg{width:18px;height:18px}
+  .logo{font-family:var(--f-disp);font-size:16px;text-decoration:none;white-space:nowrap}
+  .logo span{color:var(--leaf2)}
+  .now{flex:1;min-width:0;font-weight:600;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .now b{color:var(--text)}
+  .fs{height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);
+    color:var(--text);font:600 13px var(--f-body);cursor:pointer}
+  .fs:hover{background:rgba(255,255,255,.12)}
+
+  .portal{display:grid;grid-template-columns:160px minmax(0,1fr) 300px;gap:18px;align-items:start;
+    max-width:1520px;margin:0 auto;padding:14px 18px 48px}
+  .rail{display:flex;flex-direction:column;gap:16px}
+  .rail.left{position:sticky;top:70px}
+  .center{min-width:0;display:flex;flex-direction:column;gap:14px}
+
+  .stage{--ar:1.7778;position:relative;margin:0 auto;aspect-ratio:var(--ar);
+    width:min(100%, calc((100vh - var(--chrome)) * var(--ar)));
+    width:min(100%, calc((100dvh - var(--chrome)) * var(--ar)));
+    border-radius:16px;overflow:hidden;background:#000;box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 0 1px var(--line)}
+  .stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+
+  .ad{position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto;max-width:100%}
+  .ad-tag{position:absolute;top:-1px;left:50%;transform:translateY(-100%) translateX(-50%);font-size:10px;letter-spacing:.6px;
+    text-transform:uppercase;color:var(--muted);opacity:.6;white-space:nowrap;padding-bottom:2px}
+  .ad.empty .ad-tag{position:static;transform:none;opacity:.55}
+  .ad.empty{border:1px dashed rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.025)}
+  .ad-left{width:160px;height:600px}
+  .ad-right{width:300px;height:250px}
+  .ad-bottom{width:min(100%,728px);height:90px}
+  .ad:not(.empty){margin-top:14px}
+  .sm{display:none}
+
+  .info{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:16px 18px;border-radius:18px;
+    background:var(--panel);border:1px solid var(--line)}
+  .info h1{font-family:var(--f-disp);font-size:20px;line-height:1.1}
+  .info .fam{font-size:11px;color:var(--leaf2);text-transform:uppercase;letter-spacing:.5px}
+  .info .blurb{flex-basis:100%;font-size:14px;color:var(--muted);max-width:80ch}
+  .info .title{flex:1;min-width:200px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13px;padding:10px 18px;border-radius:999px;
+    text-decoration:none;border:1px solid rgba(251,191,36,.5);color:var(--gold)}
+  .btn:hover{background:rgba(251,191,36,.08)}
+  .btn span{opacity:.6;font-weight:400}
+
+  .list{padding:14px;border-radius:18px;background:var(--panel);border:1px solid var(--line)}
+  .list h2{font-family:var(--f-disp);font-size:12px;letter-spacing:.6px;color:var(--muted);margin:4px 2px 10px}
+  .list h2 + .items{margin-bottom:14px}
+  .items{display:flex;flex-direction:column;gap:6px}
+  .item{display:flex;align-items:center;gap:11px;padding:6px;border-radius:12px;text-decoration:none}
+  .item:hover{background:rgba(255,255,255,.07)}
+  .item img,.item .swatch{flex:none;width:96px;height:54px;border-radius:9px;object-fit:cover;background:#000;display:block}
+  .meta{min-width:0;display:flex;flex-direction:column}
+  .meta b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta i{font-style:normal;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hint{font-size:12.5px;color:var(--muted);opacity:.8;padding:2px 4px 14px}
+  [hidden]{display:none !important}
+
+  /* No room for the skyscraper: drop it, keep the right rail. */
+  @media (max-width:1200px){
+    .portal{grid-template-columns:minmax(0,1fr) 300px}
+    .rail.left{display:none}
+  }
+  /* Tablet: one column — game, leaderboard, info, then the rail underneath. Two columns at this
+     width left the game 655×368, short enough to cut the bottom off a game's own menu; one column
+     gives it the full width instead. The list goes into a grid so it does not become one long
+     strip. */
+  @media (max-width:1080px){
+    .portal{grid-template-columns:minmax(0,1fr)}
+    .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+    .ad-right{order:2}
+  }
+  /* Phone. */
+  @media (max-width:880px){
+    :root{--chrome:196px}
+    .portal{padding:12px 12px 40px}
+    .ad-bottom{width:min(100%,320px);height:100px}
+    .lg{display:none}.sm{display:inline}
+    .logo{display:none}
+  }
+  @media (max-width:420px){ .back span{display:none} .back{padding:0 10px} }
+</style>
+</head>
+<body>
+<header class="bar">
+  <a class="back" href="../../" aria-label="Back to all games">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>All games</span>
+  </a>
+  <a class="logo" href="../../">FORGE<span>ARCADE</span></a>
+  <div class="now">Now playing · <b>GLITCH CIRCUIT</b></div>
+  <button class="fs" id="fs" type="button" hidden>Fullscreen</button>
+</header>
+
+<div class="portal">
+  <aside class="rail left">
+      <div class="ad ad-left empty" aria-hidden="true">
+        <span class="ad-tag">Ad space · <span class="lg">160 × 600</span></span>
+      </div>
+  </aside>
+
+  <main class="center">
+    <div class="stage">
+      <iframe id="game" title="GLITCH CIRCUIT"
+              allow="autoplay; fullscreen; gamepad; cross-origin-isolated" allowfullscreen></iframe>
+    </div>
+      <div class="ad ad-bottom empty" aria-hidden="true">
+        <span class="ad-tag">Ad space · <span class="lg">728 × 90</span><span class="sm">320 × 100</span></span>
+      </div>
+    <section class="info">
+      <div class="title"><h1>GLITCH CIRCUIT</h1><p class="fam">reflex</p></div>
+      <a class="btn" href="../../apk/rhythm-dash-glitch-circuit.apk" download>Get the Android app <span>361 KB</span></a>
+      <p class="blurb">One tap, one life. No menus — die and you are already running again.</p>
+    </section>
+  </main>
+
+  <aside class="rail right">
+      <div class="ad ad-right empty" aria-hidden="true">
+        <span class="ad-tag">Ad space · <span class="lg">300 × 250</span></span>
+      </div>
+    <section class="list" aria-label="More games">
+      <h2>RECENTLY PLAYED</h2>
+      <div class="items" id="recent"></div>
+      <p class="hint" id="recent-hint">Games you play will show up here.</p>
+      <h2>MORE GAMES</h2>
+      <div class="items" id="more">
+        <a class="item" href="../pac-maze/" data-slug="pac-maze">
+          <img src="../../thumb/small/pac-maze.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>PAC MAZE</b><i>maze chase</i></span>
+        </a>
+        <a class="item" href="../shadow-dash/" data-slug="shadow-dash">
+          <img src="../../thumb/small/shadow-dash.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>SHADOW DASH: Ninja Quest</b><i>ninja action platformer</i></span>
+        </a>
+        <a class="item" href="../neon-coil/" data-slug="neon-coil">
+          <img src="../../thumb/small/neon-coil.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>NEON COIL</b><i>arcade snake</i></span>
+        </a>
+        <a class="item" href="../block-bloom/" data-slug="block-bloom">
+          <img src="../../thumb/small/block-bloom.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>BLOCK BLOOM</b><i>block puzzle</i></span>
+        </a>
+        <a class="item" href="../ivory-gambit/" data-slug="ivory-gambit">
+          <img src="../../thumb/small/ivory-gambit.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>IVORY GAMBIT</b><i>chess</i></span>
+        </a>
+        <a class="item" href="../emberwake/" data-slug="emberwake">
+          <img src="../../thumb/small/emberwake.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>EMBERWAKE</b><i>platform adventure</i></span>
+        </a>
+        <a class="item" href="../feather-and-fetch/" data-slug="feather-and-fetch">
+          <img src="../../thumb/small/feather-and-fetch.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>FEATHER &amp; FETCH</b><i>duck shooting arcade</i></span>
+        </a>
+        <a class="item" href="../endless-runner-cinder-sprint/" data-slug="endless-runner-cinder-sprint">
+          <img src="../../thumb/small/endless-runner-cinder-sprint.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>CINDER SPRINT</b><i>arcade</i></span>
+        </a>
+        <a class="item" href="../tap-to-fly-void-runner/" data-slug="tap-to-fly-void-runner">
+          <img src="../../thumb/small/tap-to-fly-void-runner.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>VOID RUNNER</b><i>arcade</i></span>
+        </a>
+        <a class="item" href="../snake-wild-dash/" data-slug="snake-wild-dash">
+          <img src="../../thumb/small/snake-wild-dash.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>WILD DASH</b><i>arcade</i></span>
+        </a>
+        <a class="item" href="../2048-merge-ink-edge/" data-slug="2048-merge-ink-edge">
+          <img src="../../thumb/small/2048-merge-ink-edge.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>INK EDGE</b><i>board</i></span>
+        </a>
+        <a class="item" href="../memory-match-thorn-sprint/" data-slug="memory-match-thorn-sprint">
+          <img src="../../thumb/small/memory-match-thorn-sprint.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>THORN SPRINT</b><i>board</i></span>
+        </a>
+        <a class="item" href="../sliding-puzzle-frost-drift/" data-slug="sliding-puzzle-frost-drift">
+          <img src="../../thumb/small/sliding-puzzle-frost-drift.jpg" alt="" width="96" height="54" loading="lazy" decoding="async" />
+          <span class="meta"><b>FROST DRIFT</b><i>board</i></span>
+        </a>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script>
+(function () {
+  var SLUG = "rhythm-dash-glitch-circuit";
+  var GAMES = [{"slug":"pac-maze","title":"PAC MAZE","family":"maze chase","cover":true,"bg":"#080915","accent":"#ffe4be"},{"slug":"shadow-dash","title":"SHADOW DASH: Ninja Quest","family":"ninja action platformer","cover":true,"bg":"#111525","accent":"#f9d48b"},{"slug":"neon-coil","title":"NEON COIL","family":"arcade snake","cover":true,"bg":"#09081a","accent":"#ffca40"},{"slug":"block-bloom","title":"BLOCK BLOOM","family":"block puzzle","cover":true,"bg":"#121628","accent":"#ffce56"},{"slug":"ivory-gambit","title":"IVORY GAMBIT","family":"chess","cover":true,"bg":"#1d1710","accent":"#e0a44a"},{"slug":"emberwake","title":"EMBERWAKE","family":"platform adventure","cover":true,"bg":"#140b1e","accent":"#ffd27a"},{"slug":"feather-and-fetch","title":"FEATHER & FETCH","family":"duck shooting arcade","cover":true,"bg":"#14210f","accent":"#ffe08a"},{"slug":"rhythm-dash-glitch-circuit","title":"GLITCH CIRCUIT","family":"reflex","cover":true,"bg":"#0b0620","accent":"#ffe14d"},{"slug":"endless-runner-cinder-sprint","title":"CINDER SPRINT","family":"arcade","cover":true,"bg":"#1a0703","accent":"#ff8c42"},{"slug":"tap-to-fly-void-runner","title":"VOID RUNNER","family":"arcade","cover":true,"bg":"#050514","accent":"#fde047"},{"slug":"snake-wild-dash","title":"WILD DASH","family":"arcade","cover":true,"bg":"#06281c","accent":"#fbbf24"},{"slug":"2048-merge-ink-edge","title":"INK EDGE","family":"board","cover":true,"bg":"#0f0f10","accent":"#9e9e9e"},{"slug":"memory-match-thorn-sprint","title":"THORN SPRINT","family":"board","cover":true,"bg":"#06281c","accent":"#fbbf24"},{"slug":"sliding-puzzle-frost-drift","title":"FROST DRIFT","family":"board","cover":true,"bg":"#071a2b","accent":"#66e0ff"}];
+  var KEY = 'forge.arcade.recent.v1';
+  var frame = document.getElementById('game');
+
+  // The game URL is set here rather than in the markup so a query string on this page — a debug
+  // flag, a seed — reaches the game, and the frame still loads exactly once.
+  frame.src = '../../game/' + SLUG + '/' + location.search + location.hash;
+
+  // ── recently played ──────────────────────────────────────────────────────
+  // Browser storage, per visitor: it is a convenience, so a private window or blocked storage
+  // just shows the hint instead.
+  var recent = [];
+  try { recent = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  if (!Array.isArray(recent)) recent = [];
+  var known = {};
+  GAMES.forEach(function (g) { known[g.slug] = true; });
+  recent = recent.filter(function (s) { return typeof s === 'string' && known[s] && s !== SLUG; });
+
+  var recentBox = document.getElementById('recent');
+  var more = document.getElementById('more');
+  recent.slice(0, 6).forEach(function (s) {
+    var el = more.querySelector('[data-slug="' + s + '"]');
+    if (el) recentBox.appendChild(el);      // moved, not copied: a game is listed once
+  });
+  document.getElementById('recent-hint').hidden = recentBox.children.length > 0;
+
+  try { localStorage.setItem(KEY, JSON.stringify([SLUG].concat(recent).slice(0, 12))); } catch (e) {}
+
+  // ── keyboard focus ───────────────────────────────────────────────────────
+  // The games listen for keys on their own window, which only hears them while the frame has
+  // focus. Give it focus on load, and if a key meant for the game lands on this page instead,
+  // stop it scrolling the page and hand focus back.
+  function focusGame() { try { frame.contentWindow.focus(); } catch (e) {} try { frame.focus(); } catch (e) {} }
+  frame.addEventListener('load', focusGame);
+  var GAME_KEYS = { ArrowUp: 1, ArrowDown: 1, ArrowLeft: 1, ArrowRight: 1, ' ': 1, Spacebar: 1 };
+  document.addEventListener('keydown', function (e) {
+    if (GAME_KEYS[e.key] && document.activeElement !== frame) { e.preventDefault(); focusGame(); }
+  });
+
+  // ── fullscreen ───────────────────────────────────────────────────────────
+  // Hidden where element fullscreen does not exist (iPhone Safari), rather than shown and broken.
+  var fs = document.getElementById('fs');
+  var request = frame.requestFullscreen || frame.webkitRequestFullscreen;
+  if (request) {
+    fs.hidden = false;
+    fs.addEventListener('click', function () {
+      try { var p = request.call(frame); if (p && p.then) p.then(focusGame, function () {}); else focusGame(); } catch (e) {}
+    });
+  }
+})();
+</script>
+</body>
 </html>
