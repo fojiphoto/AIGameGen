@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a192d">
+  <meta name="description" content="Aim, bounce, and pop your way through 100 underwater Bubble Shooter puzzles.">
+  <title>Bubble Reef</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="game.js"></script>
+</head>
+<body>
+  <main id="shell" class="shell">
+    <header class="mast">
+      <button id="home" class="wordmark" aria-label="Bubble Reef home"><i></i> Bubble Reef</button>
+      <div class="header-actions"><button id="sound" class="quiet" aria-pressed="false">Sound on</button><button id="symbols" class="quiet" aria-pressed="true">Symbols on</button></div>
+    </header>
+    <section id="menu" class="menu">
+      <div class="intro">
+        <p class="eyebrow">FACTORIAL STUDIO</p>
+        <h1>Bubble<br><em>Reef.</em></h1>
+        <p class="lede">Aim, bounce and pop your way through 100 underwater puzzles.</p>
+        <button id="start" class="primary">Play level 01 <span aria-hidden="true">→</span></button>
+        <div class="menu-actions"><button id="levels" class="quiet">Level select</button><button id="help" class="quiet">How to play</button></div>
+      </div>
+      <canvas id="postcard" aria-label="Bright glass bubbles floating over a dark underwater reef"></canvas>
+    </section>
+    <section id="play" class="play" hidden>
+      <header class="play-header"><div><p id="chapter" class="eyebrow"></p><h2 id="level-title"></h2></div><button id="pause" class="quiet">Pause</button></header>
+      <div class="game-grid">
+        <div class="arena"><canvas id="board" tabindex="0" aria-label="Bubble shooter playfield. Use left and right to aim, Space to shoot, and X to swap."></canvas><div id="callout" class="callout" role="status" hidden></div></div>
+        <aside class="side" aria-label="Level stats">
+          <div class="stats">
+            <div><span class="eyebrow">SCORE</span><strong id="score">0</strong></div>
+            <div><span class="eyebrow">BUBBLES</span><strong id="remaining">0</strong></div>
+          </div>
+          <div class="pressure"><span class="eyebrow">MISSES BEFORE DROP</span><div id="pressure" class="pips" aria-hidden="true"></div><strong id="misses-left" class="screen-reader" aria-live="polite"></strong></div>
+          <div class="side-actions"><button id="swap" class="quiet swap"><canvas id="next" width="72" height="72" aria-hidden="true"></canvas><span><strong>Swap</strong><small id="next-label">Next bubble</small></span></button><button id="shoot" class="primary shoot">Shoot</button></div>
+          <p class="control-note">Aim and release, or use ← → and Space. Press X to swap.</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+  <div id="overlay" class="overlay" hidden><section id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" class="dialog"></section></div>
+</body>
+</html>
