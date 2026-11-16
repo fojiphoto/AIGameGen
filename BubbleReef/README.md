@@ -20,3 +20,5 @@ node --test BubbleReef/test/game.test.mjs
 ```
 
 Campaign verification uses the same shot trajectory, colors, swap, and ceiling pressure rules as the playable build. It finds a winning sequence for every board.
+
+The browser and Android builds bundle the sound effects for offline playback. See [sound credits](src/sfx/CREDITS.txt) for the CC0 sources.

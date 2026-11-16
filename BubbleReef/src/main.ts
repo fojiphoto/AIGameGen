@@ -1,3 +1,4 @@
+import { BubbleAudio } from './audio';
 import { Game, type Aim, type Mode, type Result } from './game';
 import { ANGLE_LIMIT, CHAPTERS, HEIGHT, LEVELS, ORIGIN, PALETTE, WIDTH } from './levels';
 import { Renderer, postcard, travel, type Flight } from './render';
@@ -17,25 +18,10 @@ let game: Game | undefined, flight: Flight | undefined, path: Aim | undefined;
 let angle = 0, chosenChapter = 0, pointer: number | undefined, panel = '';
 let last = performance.now(), nextShot = 0, messageTimeout = 0, finish = 0;
 let oldFocus: HTMLElement | undefined;
-let audio: AudioContext | undefined;
+const audio = new BubbleAudio(save.muted);
 const aimKeys = new Set<string>();
 const format = (n: number) => String(n).padStart(2, '0');
 const action = (id: string, label: string, primary = false) => `<button type="button" data-action="${id}" class="${primary ? 'primary' : 'quiet'}">${label}</button>`;
-
-function audioOn() {
-  if (save.muted) return;
-  try { audio ??= new AudioContext(); if (audio.state === 'suspended') void audio.resume().catch(() => {}); } catch { /* Sound is optional. */ }
-}
-
-function sound(notes: number[], volume = .06) {
-  if (!audio || audio.state !== 'running' || save.muted) return;
-  for (const [i, note] of notes.entries()) {
-    const osc = audio.createOscillator(), gain = audio.createGain(), at = audio.currentTime + i * .064;
-    osc.type = 'sine'; osc.frequency.setValueAtTime(note, at); osc.frequency.exponentialRampToValueAtTime(note * .82, at + .13);
-    gain.gain.setValueAtTime(.001, at); gain.gain.linearRampToValueAtTime(volume, at + .006); gain.gain.exponentialRampToValueAtTime(.001, at + .15);
-    osc.connect(gain).connect(audio.destination); osc.start(at); osc.stop(at + .16);
-  }
-}
 
 function labels() {
   soundButton.textContent = save.muted ? 'Sound off' : 'Sound on';
@@ -59,6 +45,7 @@ function close(restore = true) {
 }
 
 function home() {
+  audio.reset();
   saveEndless();
   game = undefined; flight = undefined; pointer = undefined; aimKeys.clear();
   play.hidden = true; menu.hidden = false; close(false);
@@ -113,6 +100,8 @@ function message(text: string, seconds: number) {
 
 function start(index: number, mode: Mode = 'campaign') {
   if (index < 0 || index >= LEVELS.length || index > save.best.length) return;
+  audio.reset();
+  audio.unlock();
   game = new Game(index, mode, mode === 'endless' ? Date.now() : undefined);
   flight = undefined; path = undefined; pointer = undefined; aimKeys.clear();
   nextShot = finish = messageTimeout = 0;
@@ -137,24 +126,23 @@ function ready() { return game?.status === 'playing' && !panel && !flight && nex
 
 function fire() {
   if (!game || !path || !ready()) return;
-  audioOn(); sound([330], .047); callout.hidden = true;
+  audio.unlock(); audio.play('launch'); callout.hidden = true;
   flight = { aim: path, color: game.current, distance: 0 };
   hud();
 }
 
 function swap(pick?: 1 | 2) {
   if (!game || !ready()) return;
-  audioOn(); game.swap(pick); renderer.pushBubble(pick); sound([470]); hud();
+  audio.unlock(); game.swap(pick); renderer.pushBubble(pick); audio.play('swap'); hud();
 }
 
 function settled(result: Result) {
   renderer.pop(result, game?.stagger ?? 0);
   renderer.pushBubble(1);
   saveEndless();
-  if (result.removed.length) {
-    sound(result.removed.some(b => b.falling) ? [520, 690, 890] : [510, 720]);
-    if (result.removed.length >= 8 && game?.status === 'playing') message(`${result.removed.length} bubbles cleared`, .8);
-  } else sound(result.newDrop > result.oldDrop ? [240, 150] : [285], .05);
+  const dropped = result.removed.filter(bubble => bubble.falling).length;
+  audio.landed(result.removed.length - dropped, dropped, result.newDrop > result.oldDrop);
+  if (result.removed.length >= 8 && game?.status === 'playing') message(`${result.removed.length} bubbles cleared`, .8);
   if (result.newDrop > result.oldDrop) message('Ceiling moved down', .8);
   nextShot = result.newDrop > result.oldDrop ? .18 : .045;
   path = game?.trace(angle);
@@ -167,14 +155,14 @@ function results() {
     const best = save.best[game.index];
     save.best[game.index] = { stars: Math.max(game.stars, best?.stars ?? 0), score: Math.max(game.score, best?.score ?? 0) };
     writeSave(save);
-    sound([523, 659, 784, 1047], .085);
+    audio.play('clear');
     modal('result', game.level.number === LEVELS.length ? 'Reef complete!' : 'Level clear!', `<p class="stars" aria-label="${game.stars} of 3 stars">${'★'.repeat(game.stars)}${'☆'.repeat(3 - game.stars)}</p><p>${game.score.toLocaleString('en-US')} points · ${game.shots} shots</p><nav>${game.level.number < LEVELS.length ? action('next-level', 'Next level', true) : ''}${action('retry', 'Replay')}${action('level-select', 'Level select')}${action('home', 'Main menu')}</nav>`);
   } else if (game.mode === 'endless') {
     saveEndless();
-    sound([390, 280, 150]);
+    audio.play('lose');
     modal('result', 'Line reached', `<p>${game.score.toLocaleString('en-US')} points · ${game.waves} rows survived</p><p>Best ${save.endlessBest.toLocaleString('en-US')}</p><nav>${action('retry', 'Play Endless again', true)}${action('home', 'Main menu')}</nav>`);
   } else {
-    sound([390, 280, 150]);
+    audio.play('lose');
     modal('result', 'Reef overflowed', `<p>${game.left} bubbles left · ${game.score.toLocaleString('en-US')} points</p><nav>${action('retry', 'Try again', true)}${action('level-select', 'Level select')}${action('home', 'Main menu')}</nav>`);
   }
 }
@@ -187,6 +175,7 @@ function saveEndless() {
 
 function pause() {
   if (!game || game.status !== 'playing' || panel) return;
+  audio.stop();
   modal('pause', 'Paused', `<nav>${action('back', 'Resume', true)}${action('retry', 'Restart')}${action('home', 'Main menu')}</nav>`);
 }
 
@@ -200,7 +189,7 @@ function point(e: PointerEvent) {
 
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || !ready() || pointer !== undefined || !point(e)) return;
-  e.preventDefault(); audioOn(); pointer = e.pointerId; canvas.setPointerCapture(e.pointerId);
+  e.preventDefault(); audio.unlock(); pointer = e.pointerId; canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', e => { if (ready() && (pointer === e.pointerId || (pointer === undefined && e.pointerType === 'mouse'))) point(e); });
 canvas.addEventListener('pointerup', e => { if (pointer === e.pointerId) { pointer = undefined; if (point(e)) fire(); } });
@@ -234,18 +223,17 @@ window.addEventListener('blur', pause);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
 get('home').onclick = home;
-get('start').onclick = () => { audioOn(); start(Math.min(save.best.length, LEVELS.length - 1)); };
-endlessButton.onclick = () => { audioOn(); start(0, 'endless'); };
+get('start').onclick = () => start(Math.min(save.best.length, LEVELS.length - 1));
+endlessButton.onclick = () => start(0, 'endless');
 get('levels').onclick = () => levels();
 get('help').onclick = help;
-soundButton.onclick = () => { save.muted = !save.muted; labels(); writeSave(save); audioOn(); if (!save.muted) sound([580]); };
+soundButton.onclick = () => { save.muted = !save.muted; labels(); writeSave(save); audio.setMuted(save.muted); if (!save.muted) audio.play('swap'); };
 symbolsButton.onclick = () => { save.symbols = !save.symbols; labels(); writeSave(save); hud(); };
 pauseButton.onclick = pause;
 shootButton.onclick = fire;
 dialog.onclick = e => {
   const target = (e.target as Element).closest<HTMLButtonElement>('button[data-action]');
   if (!target || target.disabled) return;
-  audioOn();
   const id = target.dataset.action!;
   if (id === 'back') close();
   else if (id === 'home') home();
@@ -281,7 +269,7 @@ function frame(now: number) {
           renderer.rowArrived();
           path = game.trace(angle);
           nextShot = Math.max(nextShot, .26);
-          sound([230, 340], .036);
+          audio.play('row');
           hud();
         }
         rowFill.style.width = `${100 * game.untilRow / game.rowInterval}%`;

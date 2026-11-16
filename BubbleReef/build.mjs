@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, cp, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const root = import.meta.dirname;
@@ -13,5 +13,6 @@ await build({
 });
 if (!test) {
   for (const file of ['index.html', 'style.css']) await copyFile(join(root, 'src', file), join(out, file));
+  await cp(join(root, 'src', 'sfx'), join(out, 'sfx'), { recursive: true });
 }
 console.log('Bubble Reef built:', out);

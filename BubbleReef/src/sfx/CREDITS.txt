@@ -1,0 +1,20 @@
+Bubble Reef sound effects
+
+Dustyroom, Free Casual Game Sounds (CC0 1.0)
+https://dustyroom.com/free-casual-game-sounds/
+
+    launch.wav  DM-CGS-41.wav
+    swap.wav    DM-CGS-21.wav
+    land.wav    DM-CGS-22.wav
+    combo.wav   DM-CGS-31.wav
+    row.wav     DM-CGS-39.wav
+    clear.wav   DM-CGS-26.wav
+    lose.wav    DM-CGS-02.wav
+
+farfadet46, bubbles 'pop' (CC0 1.0)
+https://opengameart.org/content/bubbles-pop
+
+    pop.wav     pop.ogg
+
+Samples were trimmed, level-adjusted, and converted to mono PCM for the game.
+https://creativecommons.org/publicdomain/zero/1.0/
