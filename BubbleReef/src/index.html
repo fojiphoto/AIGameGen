@@ -27,7 +27,6 @@
     <section id="play" class="play" hidden>
       <header class="play-header"><div><p id="chapter" class="eyebrow"></p><h2 id="level-title"></h2></div><button id="pause" class="quiet">Pause</button></header>
       <div class="game-grid">
-        <div id="arena" class="arena"><canvas id="board" tabindex="0" aria-label="Bubble shooter playfield. Use left and right to aim, Space to shoot, and X or right click to switch bubbles."></canvas><div id="callout" class="callout" role="status" hidden></div><div class="tray" role="group" aria-label="Bubble queue"><button class="bubble-slot" data-slot="0"></button><button class="bubble-slot" data-slot="1"></button><button class="bubble-slot" data-slot="2"></button></div></div>
         <aside class="side" aria-label="Level stats">
           <div class="stats">
             <div><span class="eyebrow">SCORE</span><strong id="score">0</strong></div>
@@ -35,8 +34,8 @@
           </div>
           <div class="pressure"><span id="pressure-label" class="eyebrow">MISSES BEFORE DROP</span><div id="pressure" class="pips" aria-hidden="true"></div><div id="row-meter" class="row-meter" hidden><i></i></div><strong id="misses-left" class="screen-reader" aria-live="polite"></strong></div>
           <button id="shoot" class="primary shoot">Shoot</button>
-          <p class="control-note">Tap a bubble, right-click or press X to switch colors.</p>
         </aside>
+        <div id="arena" class="arena"><canvas id="board" tabindex="0" aria-label="Bubble shooter playfield. Use left and right to aim, Space to shoot, and X or right click to switch bubbles."></canvas><div id="callout" class="callout" role="status" hidden></div><div class="tray" role="group" aria-label="Bubble queue"><button class="bubble-slot" data-slot="0"></button><button class="bubble-slot" data-slot="1"></button><button class="bubble-slot" data-slot="2"></button></div></div>
       </div>
     </section>
   </main>

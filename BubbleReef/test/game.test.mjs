@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLS, Game, LEVELS, LIMIT, RADIUS, connected, coords, neighbors, rowsize, slot } from '../build/test/core.mjs';
+import { COLS, Game, LEVELS, LIMIT, RADIUS, WIDE, connected, coords, neighbors, rowsize, slot } from '../build/test/core.mjs';
 import { solve } from './campaign.mjs';
 
 test('100 unique layouts are anchored, with increasing depth, color count and ceiling pressure across chapters', () => {
@@ -81,6 +81,30 @@ test('every level can be cleared with real aim angles, visible colors and swaps'
     assert.equal(win?.status, 'won', `Level ${level.number}`);
     assert.equal(win.left, 0, `Level ${level.number}`);
   }
+});
+
+test('all 100 wide variants can be cleared against their actual side walls', () => {
+  for (const level of LEVELS) {
+    const win = solve(level.number - 1, 6, WIDE);
+    assert.equal(win?.status, 'won', `Wide level ${level.number}`);
+    assert.equal(win.left, 0, `Wide level ${level.number}`);
+  }
+});
+
+test('a wide Endless row preserves column alignment and moves the wall used for bank shots', () => {
+  const game = new Game(0, 'endless', 17, WIDE);
+  const path = game.trace(1.12);
+  assert.ok(path.bounces > 0);
+  assert.equal(path.points[1].x, WIDE.width - 17);
+  const edge = WIDE.slot(0, WIDE.columns - 1);
+  const original = game.board[edge];
+  const initial = game.left;
+  assert.ok(original > 0);
+  assert.ok(game.advance(game.untilRow));
+  assert.equal(game.board[edge], 0);
+  assert.equal(game.board[edge + WIDE.columns], original);
+  assert.equal(game.left, initial + WIDE.columns - 1);
+  assert.equal(game.left, game.board.filter(Boolean).length);
 });
 
 test('the three-slot triangle can load either reserve or cycle through all colors', () => {

@@ -1,6 +1,6 @@
-import { HEIGHT, ORIGIN, WIDTH, rng } from './levels';
+import { HEIGHT, WIDTH, type Grid, rng } from './levels';
 
-export const TRAY = [ORIGIN, { x: ORIGIN.x - 27, y: 598 }, { x: ORIGIN.x + 27, y: 598 }] as const;
+export const trayFor = ({ origin }: Grid) => [origin, { x: origin.x - 27, y: 598 }, { x: origin.x + 27, y: 598 }] as const;
 
 type Canvas = CanvasRenderingContext2D;
 const INK = '#51345e';
@@ -28,32 +28,36 @@ function gradient(c: Canvas, top: number, bottom: number, colors: string[]) {
   return paint;
 }
 
-export function landscape(c: Canvas, theme: number) {
+export function landscape(c: Canvas, theme: number, width = WIDTH) {
   const skies = [['#f9b76b', '#fff3ae'], ['#8fddf4', '#fff1b4'], ['#f4a5ae', '#fff1aa'], ['#cfb2f1', '#ffe4b6'], ['#84c9f7', '#fff5bb']];
   const hue = (theme + 5) % 5;
-  const w = WIDTH, h = HEIGHT, random = rng(7135 + hue);
+  const w = width, h = HEIGHT, random = rng(7135 + hue);
+  const across = (x: number) => x / WIDTH * w;
+  const ridge = (points: number[], fill: string) => polygon(c, points.map((value, i) => i % 2 ? value : across(value)), fill);
   c.fillStyle = gradient(c, 0, h * .72, skies[hue]); c.fillRect(0, 0, w, h);
-  const light = c.createRadialGradient(281, 142, 8, 281, 142, 101);
+  const light = c.createRadialGradient(across(281), 142, 8, across(281), 142, 101);
   light.addColorStop(0, '#fffed4b0'); light.addColorStop(1, '#fffed400');
-  oval(c, 281, 142, 102, 102, light);
+  oval(c, across(281), 142, 102, 102, light);
   for (const [x, y, scale] of [[26, 293, .7], [338, 221, .8], [121, 344, .47], [259, 301, .38]]) {
-    c.save(); c.translate(x, y); c.scale(scale, scale);
+    c.save(); c.translate(across(x), y); c.scale(scale, scale);
     oval(c, 0, 12, 44, 11, '#ffffdc94');
     oval(c, -20, 3, 19, 16, '#ffffdc94'); oval(c, 4, 0, 22, 20, '#ffffdc94'); oval(c, 27, 8, 19, 12, '#ffffdc94');
     c.restore();
   }
-  polygon(c, [0, 433, 18, 397, 39, 404, 54, 379, 90, 416, 116, 402, 153, 429, 199, 389, 230, 405, 252, 382, 300, 413, 338, 391, 374, 412, 374, 506, 0, 506], '#e9a973');
-  polygon(c, [0, 454, 33, 428, 67, 437, 107, 422, 143, 453, 194, 424, 224, 432, 258, 418, 291, 442, 344, 419, 374, 436, 374, 510, 0, 510], '#f5c771');
+  ridge([0, 433, 18, 397, 39, 404, 54, 379, 90, 416, 116, 402, 153, 429, 199, 389, 230, 405, 252, 382, 300, 413, 338, 391, 374, 412, 374, 506, 0, 506], '#e9a973');
+  ridge([0, 454, 33, 428, 67, 437, 107, 422, 143, 453, 194, 424, 224, 432, 258, 418, 291, 442, 344, 419, 374, 436, 374, 510, 0, 510], '#f5c771');
   c.fillStyle = gradient(c, 456, h, ['#ffd567', '#ed9d4f', '#c87454']); c.fillRect(0, 456, w, h - 456);
+  c.save(); c.scale(w / WIDTH, 1);
   c.beginPath(); c.moveTo(221, 467); c.bezierCurveTo(297, 491, 123, 503, 195, 547); c.bezierCurveTo(239, 569, 221, 605, 168, h);
   c.lineTo(71, h); c.bezierCurveTo(180, 580, 133, 568, 153, 544); c.bezierCurveTo(105, 508, 254, 484, 221, 467);
   c.fillStyle = '#ffe498'; c.fill();
+  c.restore();
   for (let i = 0; i < 84; i++) {
     const x = w * random(), y = 458 + (h - 458) * random(), s = .25 + (y - 458) / 110;
-    if (x > 128 && x < 235 && y > 537) continue;
+    if (x > across(128) && x < across(235) && y > 537) continue;
     oval(c, x, y, 2.8 * s, 1.55 * s, i % 4 === 0 ? '#ffe7a1' : '#b86442a6');
   }
-  c.save(); c.translate(321, 451); c.scale(.72, .72);
+  c.save(); c.translate(across(321), 451); c.scale(.72, .72);
   polygon(c, [-26, 34, -16, -35, 22, -35, 31, 34], '#d18068', '#92546b');
   polygon(c, [-24, -28, 2, -61, 27, -31, 23, -22, -22, -23], '#91405b', '#713757');
   polygon(c, [-3, 34, -3, 8, 7, 4, 14, 10, 14, 34], '#7e4654');
@@ -64,7 +68,7 @@ export function landscape(c: Canvas, theme: number) {
   }
   oval(c, 0, 0, 5, 5, '#fce5a3', '#935563'); c.restore(); c.restore();
   for (const [x, y, s] of [[17, 532, .56], [353, 510, .48], [45, 582, .8], [343, 580, .83], [119, 615, .55]]) {
-    c.save(); c.translate(x, y); c.scale(s, s);
+    c.save(); c.translate(across(x), y); c.scale(s, s);
     oval(c, 0, 4, 17, 6, '#75496245');
     oval(c, -7, 0, 9, 9, '#e26e3c', '#ac594e'); oval(c, 7, 0, 9, 9, '#d85d42', '#ac594e'); oval(c, 0, 0, 9, 11, '#f69039', '#ac594e');
     stroke(c, '#6b7348', 3, () => { c.moveTo(0, -8); c.quadraticCurveTo(-3, -15, 4, -15); });

@@ -1,4 +1,4 @@
-import { ANGLE_LIMIT, COLS, DIAMETER, LEVELS, LIMIT, ORIGIN, WIDTH, connected, coords, links, rowOf, rowsize } from './levels';
+import { ANGLE_LIMIT, DIAMETER, LEVELS, LIMIT, PORTRAIT, WIDE_LEVELS, connected, type Grid } from './levels';
 
 export type Status = 'playing' | 'won' | 'lost';
 export type Mode = 'campaign' | 'endless';
@@ -11,27 +11,27 @@ const WALL = DIAMETER / 2;
 const COLLISION = 31.8;
 const PRESS = 18;
 
-function nearest(cells: Iterable<number>, to: Point, board: Int8Array, drop: number, stagger: number) {
+function nearest(cells: Iterable<number>, to: Point, board: Int8Array, drop: number, stagger: number, grid: Grid) {
   let best = -1, distance = Infinity;
   for (const cell of cells) {
     if (board[cell]) continue;
-    const p = coords(cell, drop, stagger), d = (p.x - to.x) ** 2 + (p.y - to.y) ** 2;
+    const p = grid.coords(cell, drop, stagger), d = (p.x - to.x) ** 2 + (p.y - to.y) ** 2;
     if (d < distance) { distance = d; best = cell; }
   }
   return best;
 }
 
-export function aim(board: Int8Array, drop: number, angle: number, stagger = 0): Aim {
+export function aim(board: Int8Array, drop: number, angle: number, stagger = 0, grid = PORTRAIT): Aim {
   const a = Math.max(-ANGLE_LIMIT, Math.min(ANGLE_LIMIT, angle));
   let vx = Math.sin(a);
   const vy = -Math.cos(a);
-  let x = ORIGIN.x, y = ORIGIN.y;
+  let { x, y } = grid.origin;
   const points = [{ x, y }];
   const targets: { cell: number; x: number; y: number }[] = [];
-  for (let i = 0; i < board.length; i++) if (board[i]) targets.push({ cell: i, ...coords(i, drop, stagger) });
+  for (let i = 0; i < board.length; i++) if (board[i]) targets.push({ cell: i, ...grid.coords(i, drop, stagger) });
   for (let bounces = 0; bounces < 12; bounces++) {
     const ceiling = (24 + drop - y) / vy;
-    const wall = vx > 1e-8 ? (WIDTH - WALL - x) / vx : vx < -1e-8 ? (WALL - x) / vx : Infinity;
+    const wall = vx > 1e-8 ? (grid.width - WALL - x) / vx : vx < -1e-8 ? (WALL - x) / vx : Infinity;
     let t = Math.min(ceiling, wall), hit = -1;
     for (const p of targets) {
       const dx = p.x - x, dy = p.y - y;
@@ -45,20 +45,20 @@ export function aim(board: Int8Array, drop: number, angle: number, stagger = 0):
     y += vy * t;
     const p = { x, y };
     points.push(p);
-    if (hit >= 0) return { points, slot: nearest(links(hit, stagger), p, board, drop, stagger), bounces };
+    if (hit >= 0) return { points, slot: nearest(grid.links(hit, stagger), p, board, drop, stagger, grid), bounces };
     if (ceiling <= wall) {
-      const columns = Array.from({ length: rowsize(0, stagger) }, (_, col) => col)
-        .filter(col => Math.abs(coords(col, drop, stagger).x - x) <= DIAMETER * 1.5);
-      return { points, slot: nearest(columns, p, board, drop, stagger), bounces };
+      const columns = Array.from({ length: grid.rowsize(0, stagger) }, (_, col) => col)
+        .filter(col => Math.abs(grid.coords(col, drop, stagger).x - x) <= DIAMETER * 1.5);
+      return { points, slot: nearest(columns, p, board, drop, stagger, grid), bounces };
     }
     vx = -vx;
   }
   return { points, slot: -1, bounces: 11 };
 }
 
-export function group(board: Int8Array, start: number, color = board[start], stagger = 0) {
+export function group(board: Int8Array, start: number, color = board[start], stagger = 0, grid = PORTRAIT) {
   const found = [start], seen = new Set(found);
-  for (let i = 0; i < found.length; i++) for (const n of links(found[i], stagger)) {
+  for (let i = 0; i < found.length; i++) for (const n of grid.links(found[i], stagger)) {
     if (seen.has(n) || board[n] !== color) continue;
     seen.add(n);
     found.push(n);
@@ -86,8 +86,8 @@ export class Game {
   readonly level;
   private random: number;
 
-  constructor(readonly index: number, readonly mode: Mode = 'campaign', seed?: number) {
-    this.level = LEVELS[index];
+  constructor(readonly index: number, readonly mode: Mode = 'campaign', seed?: number, readonly grid = PORTRAIT) {
+    this.level = (grid === PORTRAIT ? LEVELS : WIDE_LEVELS)[index];
     this.board = this.level.board.slice();
     this.random = (seed ?? this.level.seed) ^ 0xb0bb1e;
     this.left = this.total = this.board.reduce((n, v) => n + Number(v > 0), 0);
@@ -112,7 +112,7 @@ export class Game {
   get chances() { return this.level.tension - this.pressure; }
   get stars() { return this.status === 'won' ? this.misses <= 2 + this.level.chapter ? 3 : this.misses <= 7 + this.level.chapter * 2 ? 2 : 1 : 0; }
   get rowInterval() { return Math.max(3.4, 8 - this.waves * .27); }
-  trace(angle: number) { return aim(this.board, this.drop, angle, this.stagger); }
+  trace(angle: number) { return aim(this.board, this.drop, angle, this.stagger, this.grid); }
 
   swap(pick?: 1 | 2) {
     if (this.status !== 'playing') return;
@@ -123,7 +123,7 @@ export class Game {
 
   private checkLimit() {
     const last = this.lastBubble();
-    if (last >= 0 && coords(last, this.drop, this.stagger).y + COLLISION / 2 >= LIMIT) this.status = 'lost';
+    if (last >= 0 && this.grid.coords(last, this.drop, this.stagger).y + COLLISION / 2 >= LIMIT) this.status = 'lost';
   }
 
   private lastBubble() {
@@ -137,17 +137,18 @@ export class Game {
     this.elapsed += dt;
     this.untilRow = Math.max(0, this.untilRow - dt);
     if (this.untilRow > 0 || !canAdd) return false;
-    this.board.copyWithin(COLS, 0, this.board.length - COLS);
-    this.board.fill(0, 0, COLS);
+    const columns = this.grid.columns;
+    this.board.copyWithin(columns, 0, this.board.length - columns);
+    this.board.fill(0, 0, columns);
     this.stagger = 1 - this.stagger;
     this.waves++;
     const colors = Math.min(6, 3 + Math.floor(this.waves / 5));
     let color = 0;
-    for (let col = 0; col < rowsize(0, this.stagger); col++) {
+    for (let col = 0; col < this.grid.rowsize(0, this.stagger); col++) {
       if (!(col % 2) || this.randomUnit() < .27) color = 1 + Math.floor(this.randomUnit() * colors);
       this.board[col] = color;
     }
-    this.left += rowsize(0, this.stagger);
+    this.left += this.grid.rowsize(0, this.stagger);
     this.untilRow = this.rowInterval;
     this.checkLimit();
     return true;
@@ -162,13 +163,13 @@ export class Game {
     if (this.board[hit]) throw new Error('Shot cannot attach to an occupied cell');
     this.board[hit] = color;
     this.left++;
-    const cluster = group(this.board, hit, color, this.stagger);
+    const cluster = group(this.board, hit, color, this.stagger, this.grid);
     if (cluster.length >= 3) {
       for (const cell of cluster) {
         this.board[cell] = 0;
         result.removed.push({ cell, color, falling: false });
       }
-      const supported = connected(this.board, this.stagger);
+      const supported = connected(this.board, this.stagger, this.grid);
       for (let cell = 0; cell < this.board.length; cell++) if (this.board[cell] && !supported[cell]) {
         result.removed.push({ cell, color: this.board[cell], falling: true });
         this.board[cell] = 0;
@@ -202,6 +203,6 @@ export class Game {
 
   get deepest() {
     const last = this.lastBubble();
-    return last < 0 ? 0 : rowOf(last);
+    return last < 0 ? 0 : this.grid.rowOf(last);
   }
 }

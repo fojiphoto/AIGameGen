@@ -1,8 +1,8 @@
 import { BubbleAudio } from './audio';
 import { Game, type Aim, type Mode, type Result } from './game';
-import { ANGLE_LIMIT, CHAPTERS, HEIGHT, LEVELS, ORIGIN, PALETTE, WIDTH } from './levels';
+import { ANGLE_LIMIT, CHAPTERS, HEIGHT, LEVELS, PALETTE, PORTRAIT, WIDE } from './levels';
 import { Renderer, postcard, travel, type Flight } from './render';
-import { TRAY } from './scenery';
+import { trayFor } from './scenery';
 import { readSave, writeSave } from './save';
 
 const get = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -102,11 +102,19 @@ function start(index: number, mode: Mode = 'campaign') {
   if (index < 0 || index >= LEVELS.length || index > save.best.length) return;
   audio.reset();
   audio.unlock();
-  game = new Game(index, mode, mode === 'endless' ? Date.now() : undefined);
+  const grid = matchMedia('(min-width: 760px) and (orientation: landscape)').matches ? WIDE : PORTRAIT;
+  game = new Game(index, mode, mode === 'endless' ? Date.now() : undefined, grid);
   flight = undefined; path = undefined; pointer = undefined; aimKeys.clear();
   nextShot = finish = messageTimeout = 0;
   close(false); menu.hidden = true; play.hidden = false; callout.hidden = true;
-  renderer.reset();
+  renderer.reset(grid);
+  play.style.setProperty('--board-ratio', String(grid.width / HEIGHT));
+  const tray = trayFor(grid);
+  slots.forEach((button, i) => {
+    button.style.left = `${tray[i].x / grid.width * 100}%`;
+    button.style.top = `${tray[i].y / HEIGHT * 100}%`;
+    button.style.width = `${44 / grid.width * 100}%`;
+  });
   const endless = mode === 'endless';
   get('chapter').textContent = endless ? 'SURVIVAL' : CHAPTERS[game.level.chapter][0];
   get('level-title').textContent = endless ? 'Endless' : `Level ${format(index + 1)} / ${LEVELS.length}`;
@@ -180,10 +188,12 @@ function pause() {
 }
 
 function point(e: PointerEvent) {
-  const rect = canvas.getBoundingClientRect(), scale = WIDTH / rect.width;
+  if (!game) return false;
+  const { width, origin } = game.grid;
+  const rect = canvas.getBoundingClientRect(), scale = width / rect.width;
   const x = (e.clientX - rect.left) * scale, y = (e.clientY - rect.top) * scale;
-  if (y >= ORIGIN.y - 4) return false;
-  aimAt(Math.atan2(x - ORIGIN.x, ORIGIN.y - y));
+  if (y >= origin.y - 4) return false;
+  aimAt(Math.atan2(x - origin.x, origin.y - y));
   return true;
 }
 
@@ -196,8 +206,6 @@ canvas.addEventListener('pointerup', e => { if (pointer === e.pointerId) { point
 canvas.addEventListener('lostpointercapture', e => { if (pointer === e.pointerId) pointer = undefined; });
 get('arena').addEventListener('contextmenu', e => { e.preventDefault(); swap(); });
 slots.forEach((button, index) => {
-  button.style.left = `${TRAY[index].x / WIDTH * 100}%`;
-  button.style.top = `${TRAY[index].y / HEIGHT * 100}%`;
   button.onclick = () => { swap(index === 1 || index === 2 ? index : undefined); canvas.focus({ preventScroll: true }); };
 });
 

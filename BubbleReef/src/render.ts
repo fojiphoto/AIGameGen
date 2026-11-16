@@ -1,6 +1,6 @@
 import { type Aim, type Game, type Point, type Result } from './game';
-import { GAP, HEIGHT, LIMIT, ORIGIN, PALETTE, RADIUS, WIDTH, coords, rng } from './levels';
-import { landscape, panda, shooter, TRAY } from './scenery';
+import { GAP, HEIGHT, LIMIT, PALETTE, PORTRAIT, RADIUS, WIDTH, rng, type Grid } from './levels';
+import { landscape, panda, shooter, trayFor } from './scenery';
 
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; span: number; color: number; falling: boolean }
 export interface Flight { aim: Aim; color: number; distance: number }
@@ -65,16 +65,29 @@ export class Renderer {
   private clock = 0;
   private pose = 0;
   private feed = 1;
+  private grid = PORTRAIT;
+  private tray = trayFor(PORTRAIT);
   private readonly reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  constructor(canvas: HTMLCanvasElement) {
-    canvas.width = this.surface.width = WIDTH * 2;
-    canvas.height = this.surface.height = HEIGHT * 2;
+  constructor(private canvas: HTMLCanvasElement) {
     this.c = canvas.getContext('2d', { alpha: false })!;
-    this.c.scale(2, 2);
+    this.resize(PORTRAIT);
   }
 
-  reset() { this.sparks.length = 0; this.drop = this.pose = 0; }
+  private resize(grid: Grid) {
+    this.grid = grid;
+    this.tray = trayFor(grid);
+    this.canvas.width = this.surface.width = grid.width * 2;
+    this.canvas.height = this.surface.height = HEIGHT * 2;
+    this.c.setTransform(2, 0, 0, 2, 0, 0);
+    this.theme = -1;
+  }
+
+  reset(grid: Grid) {
+    if (grid !== this.grid) this.resize(grid);
+    this.sparks.length = 0;
+    this.drop = this.pose = 0;
+  }
   rowArrived() { if (!this.reduced) this.drop -= GAP; }
   pushBubble(from: 1 | 2 = 1) { this.feed = from; this.pose = this.reduced ? 0 : 1; }
 
@@ -82,7 +95,7 @@ export class Renderer {
     this.theme = index;
     const c = this.surface.getContext('2d')!;
     c.setTransform(2, 0, 0, 2, 0, 0);
-    landscape(c, index);
+    landscape(c, index, this.grid.width);
   }
 
   private bubble(x: number, y: number, color: number, symbols: boolean) {
@@ -101,7 +114,7 @@ export class Renderer {
     const random = rng(result.hit * 19 + result.removed.length);
     const limit = this.reduced ? 35 : 160;
     for (const bubble of result.removed) {
-      const p = coords(bubble.cell, result.oldDrop, stagger), count = bubble.falling || this.reduced ? 1 : 5;
+      const p = this.grid.coords(bubble.cell, result.oldDrop, stagger), count = bubble.falling || this.reduced ? 1 : 5;
       if (this.sparks.length + count > limit) break;
       for (let i = 0; i < count; i++) {
         const span = bubble.falling ? .75 : .28 + random() * .19;
@@ -114,22 +127,22 @@ export class Renderer {
     if (this.theme !== game.level.chapter) this.background(game.level.chapter);
     if (!this.reduced) this.clock += dt;
     this.pose = Math.max(0, this.pose - dt * 3.2);
-    const c = this.c;
-    c.drawImage(this.surface, 0, 0, WIDTH, HEIGHT);
+    const c = this.c, { width, origin, coords } = this.grid, tray = this.tray;
+    c.drawImage(this.surface, 0, 0, width, HEIGHT);
     this.drop += (game.drop - this.drop) * (this.reduced ? 1 : Math.min(1, dt * 15));
     if (this.drop >= 0) {
-      c.fillStyle = '#1e64ca'; c.fillRect(0, 0, WIDTH, 8 + this.drop);
-      c.fillStyle = '#85d4ff'; c.fillRect(0, 7 + this.drop, WIDTH, 2);
+      c.fillStyle = '#1e64ca'; c.fillRect(0, 0, width, 8 + this.drop);
+      c.fillStyle = '#85d4ff'; c.fillRect(0, 7 + this.drop, width, 2);
     }
-    c.strokeStyle = '#ffedb5'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, LIMIT); c.lineTo(WIDTH, LIMIT); c.stroke();
+    c.strokeStyle = '#ffedb5'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, LIMIT); c.lineTo(width, LIMIT); c.stroke();
     c.strokeStyle = game.mode === 'campaign' && game.chances === 1 ? '#d63960' : '#834260'; c.lineWidth = 1.6; c.setLineDash([6, 6]);
-    c.beginPath(); c.moveTo(0, LIMIT); c.lineTo(WIDTH, LIMIT); c.stroke(); c.setLineDash([]);
+    c.beginPath(); c.moveTo(0, LIMIT); c.lineTo(width, LIMIT); c.stroke(); c.setLineDash([]);
     for (let i = 0; i < game.board.length; i++) if (game.board[i]) {
       const p = coords(i, this.drop, game.stagger); this.bubble(p.x, p.y, game.board[i], symbols);
     }
     const motion = Math.sin(Math.PI * this.pose);
-    shooter(c, 65, 611, .85, this.clock, flight ? Math.max(motion, .65) : motion * .45);
-    panda(c, 306, 611, 1.02, this.clock, motion);
+    shooter(c, origin.x - 122, 611, .85, this.clock, flight ? Math.max(motion, .65) : motion * .45);
+    panda(c, origin.x + 119, 611, 1.02, this.clock, motion);
     if (path && !flight && game.status === 'playing') {
       c.fillStyle = '#fffdf4'; c.strokeStyle = '#5e3c7a'; c.lineWidth = .85;
       const points = path.points;
@@ -147,19 +160,19 @@ export class Renderer {
       }
     }
     c.lineJoin = 'round';
-    c.beginPath(); c.moveTo(TRAY[0].x, TRAY[0].y); c.lineTo(TRAY[1].x, TRAY[1].y); c.lineTo(TRAY[2].x, TRAY[2].y); c.closePath();
+    c.beginPath(); c.moveTo(tray[0].x, tray[0].y); c.lineTo(tray[1].x, tray[1].y); c.lineTo(tray[2].x, tray[2].y); c.closePath();
     c.strokeStyle = '#7d56b2'; c.lineWidth = 8; c.stroke(); c.strokeStyle = '#f8ecff'; c.lineWidth = 3; c.stroke();
-    for (let i = 0; i < TRAY.length; i++) {
-      const point = TRAY[i];
+    for (let i = 0; i < tray.length; i++) {
+      const point = tray[i];
       c.beginPath(); c.arc(point.x, point.y, i === 0 ? 22 : 19, 0, Math.PI * 2); c.fillStyle = i === 0 ? '#25a0ed' : '#7654b8'; c.fill();
       c.lineWidth = i === 0 ? 3 : 2; c.strokeStyle = i === 0 ? '#fff39e' : '#f9d9ff'; c.stroke();
     }
     if (game.status === 'playing') {
-      this.bubble(TRAY[1].x, TRAY[1].y, game.next, symbols);
-      this.bubble(TRAY[2].x, TRAY[2].y, game.reserve, symbols);
+      this.bubble(tray[1].x, tray[1].y, game.next, symbols);
+      this.bubble(tray[2].x, tray[2].y, game.reserve, symbols);
       const progress = this.pose ** 2;
-      const input = TRAY[this.feed];
-      const loaded = { x: ORIGIN.x + (input.x - ORIGIN.x) * progress, y: ORIGIN.y + (input.y - ORIGIN.y) * progress };
+      const input = tray[this.feed];
+      const loaded = { x: origin.x + (input.x - origin.x) * progress, y: origin.y + (input.y - origin.y) * progress };
       const point = flight ? travel(flight.aim.points, flight.distance) : loaded;
       this.bubble(point.x, point.y, flight?.color ?? game.current, symbols);
     }

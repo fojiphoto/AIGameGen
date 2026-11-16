@@ -4,6 +4,8 @@ Bubble Shooter with a 100-level campaign and an Endless survival mode. Aim and r
 
 Use mouse or touch to aim and release. The magician shoots the top bubble in the triangle, and the panda feeds the next one. Tap a reserve bubble to load it. Right-click the arena or press X to rotate all three colors. On a keyboard, hold Left or Right to aim, press Space to shoot, and Esc to pause. Bubble symbols can help distinguish colors. Level progress, stars, the Endless high score, and settings save on the device.
 
+On a wide landscape display, a new round uses a 17-column board. The portrait board has 11 columns. Both boards keep the bubbles round and use their own walls for bank shots.
+
 From the workspace root with Node 22 or later:
 
 ```powershell
@@ -19,6 +21,6 @@ node BubbleReef/build.mjs --test
 node --test BubbleReef/test/game.test.mjs
 ```
 
-Campaign verification uses the same shot trajectory, colors, swap, and ceiling pressure rules as the playable build. It finds a winning sequence for every board.
+Campaign verification uses the same shot trajectory, colors, swap, and ceiling pressure rules as the playable build. It finds winning sequences for all 100 levels on both board sizes.
 
 The browser and Android builds bundle the sound effects for offline playback. See [sound credits](src/sfx/CREDITS.txt) for the CC0 sources.

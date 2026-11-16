@@ -1,4 +1,4 @@
-import { Game, group, neighbors } from '../build/test/core.mjs';
+import { Game, group, PORTRAIT } from '../build/test/core.mjs';
 
 const angles = Array.from({ length: 201 }, (_, i) => (i - 100) * .75 * Math.PI / 180);
 
@@ -12,13 +12,13 @@ function paths(game) {
 }
 
 function rate(game, result) {
-  const setup = result.removed.length ? 0 : group(game.board, result.hit).length;
-  const edges = neighbors[result.hit].filter(cell => game.board[cell] === game.current).length;
+  const setup = result.removed.length ? 0 : group(game.board, result.hit, result.color, game.stagger, game.grid).length;
+  const edges = game.grid.links(result.hit, game.stagger).filter(cell => game.board[cell] === game.current).length;
   return -game.left * 6 - game.deepest * 2 - game.drop * 1.8 - game.pressure * 1.25 + setup * 2.7 + edges;
 }
 
-export function solve(index, width = 5) {
-  const start = new Game(index);
+export function solve(index, width = 5, grid = PORTRAIT) {
+  const start = new Game(index, 'campaign', undefined, grid);
   let frontier = [start];
   for (let step = 0; step < 140 && frontier.length; step++) {
     const candidates = new Map();
