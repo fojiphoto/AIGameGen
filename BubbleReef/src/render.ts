@@ -1,5 +1,6 @@
 import { type Aim, type Game, type Point, type Result } from './game';
-import { CHAPTERS, HEIGHT, LIMIT, ORIGIN, PALETTE, RADIUS, WIDTH, coords, rng } from './levels';
+import { GAP, HEIGHT, LIMIT, ORIGIN, PALETTE, RADIUS, WIDTH, coords, rng } from './levels';
+import { landscape, panda, shooter, TRAY } from './scenery';
 
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; span: number; color: number; falling: boolean }
 export interface Flight { aim: Aim; color: number; distance: number }
@@ -34,11 +35,13 @@ export function orb(c: CanvasRenderingContext2D, x: number, y: number, size: num
   c.save(); c.translate(x, y); c.scale(size / RADIUS, size / RADIUS);
   c.fillStyle = '#020d2b88'; c.beginPath(); c.arc(0, 1.4, RADIUS, 0, Math.PI * 2); c.fill();
   const glass = c.createRadialGradient(-5.8, -7, .7, 1.4, 2.5, RADIUS + 3);
-  glass.addColorStop(0, theme.hi); glass.addColorStop(.33, theme.mid); glass.addColorStop(.77, theme.mid); glass.addColorStop(1, theme.low);
+  glass.addColorStop(0, theme.hi); glass.addColorStop(.3, theme.mid); glass.addColorStop(.64, theme.mid); glass.addColorStop(1, theme.low);
   c.fillStyle = glass; c.beginPath(); c.arc(0, 0, RADIUS - .65, 0, Math.PI * 2); c.fill();
   c.strokeStyle = theme.hi; c.globalAlpha *= .66; c.lineWidth = 1.05; c.stroke();
   c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.lineCap = 'round';
   c.beginPath(); c.arc(-.8, -.35, RADIUS - 4, 3.72, 4.52); c.stroke();
+  c.globalAlpha = .92; c.fillStyle = '#fff9ff'; c.beginPath(); c.ellipse(5.8, -8.3, 2.65, 2.15, .35, 0, Math.PI * 2); c.fill();
+  c.globalAlpha = .34; c.beginPath(); c.arc(0, 0, RADIUS - 3, .73, 2.23); c.stroke();
   if (symbols) { c.globalAlpha = 1; mark(c, color); }
   c.restore();
 }
@@ -59,6 +62,9 @@ export class Renderer {
   private sprites = new Map<string, HTMLCanvasElement>();
   private sparks: Spark[] = [];
   private drop = 0;
+  private clock = 0;
+  private pose = 0;
+  private feed = 1;
   private readonly reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -68,32 +74,15 @@ export class Renderer {
     this.c.scale(2, 2);
   }
 
-  reset() { this.sparks.length = 0; this.drop = 0; }
+  reset() { this.sparks.length = 0; this.drop = this.pose = 0; }
+  rowArrived() { if (!this.reduced) this.drop -= GAP; }
+  pushBubble(from: 1 | 2 = 1) { this.feed = from; this.pose = this.reduced ? 0 : 1; }
 
   private background(index: number) {
     this.theme = index;
-    const [, top, deep, light] = CHAPTERS[index], c = this.surface.getContext('2d')!;
+    const c = this.surface.getContext('2d')!;
     c.setTransform(2, 0, 0, 2, 0, 0);
-    const sea = c.createLinearGradient(0, 0, 50, HEIGHT);
-    sea.addColorStop(0, top); sea.addColorStop(.55, deep); sea.addColorStop(1, '#081529');
-    c.fillStyle = sea; c.fillRect(0, 0, WIDTH, HEIGHT);
-    const tint = c.createRadialGradient(120, 40, 3, 138, 76, 324);
-    tint.addColorStop(0, `${light}39`); tint.addColorStop(1, `${light}00`);
-    c.fillStyle = tint; c.fillRect(0, 0, WIDTH, HEIGHT);
-    for (let i = 0; i < 5; i++) {
-      c.fillStyle = `${light}0c`;
-      c.beginPath(); c.moveTo(18 + i * 48, 0); c.lineTo(37 + i * 50, 0); c.lineTo(WIDTH, 315 + i * 38); c.closePath(); c.fill();
-    }
-    const random = rng(2719 + index);
-    for (let i = 0; i < 78; i++) {
-      const x = WIDTH * random(), y = HEIGHT * random(), r = .6 + random() * 2;
-      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fillStyle = `${light}2e`; c.fill();
-    }
-    for (const side of [-1, 1]) for (let i = 0; i < 11; i++) {
-      const x = side < 0 ? i * 5 : WIDTH - i * 5, h = 18 + random() * 106;
-      c.strokeStyle = `${light}${i % 2 === 0 ? '24' : '15'}`; c.lineWidth = 2 + random() * 5; c.lineCap = 'round';
-      c.beginPath(); c.moveTo(x, HEIGHT); c.bezierCurveTo(x + side * 20, HEIGHT - h * .45, x - side * 20, HEIGHT - h * .7, x - side * 7, HEIGHT - h); c.stroke();
-    }
+    landscape(c, index);
   }
 
   private bubble(x: number, y: number, color: number, symbols: boolean) {
@@ -108,11 +97,11 @@ export class Renderer {
     this.c.drawImage(sprite, x - 18, y - 18, 36, 36);
   }
 
-  pop(result: Result) {
+  pop(result: Result, stagger: number) {
     const random = rng(result.hit * 19 + result.removed.length);
     const limit = this.reduced ? 35 : 160;
     for (const bubble of result.removed) {
-      const p = coords(bubble.cell, result.oldDrop), count = bubble.falling || this.reduced ? 1 : 5;
+      const p = coords(bubble.cell, result.oldDrop, stagger), count = bubble.falling || this.reduced ? 1 : 5;
       if (this.sparks.length + count > limit) break;
       for (let i = 0; i < count; i++) {
         const span = bubble.falling ? .75 : .28 + random() * .19;
@@ -123,37 +112,56 @@ export class Renderer {
 
   draw(game: Game, path: Aim | undefined, flight: Flight | undefined, dt: number, symbols: boolean) {
     if (this.theme !== game.level.chapter) this.background(game.level.chapter);
-    const c = this.c, accent = CHAPTERS[this.theme][3];
+    if (!this.reduced) this.clock += dt;
+    this.pose = Math.max(0, this.pose - dt * 3.2);
+    const c = this.c;
     c.drawImage(this.surface, 0, 0, WIDTH, HEIGHT);
     this.drop += (game.drop - this.drop) * (this.reduced ? 1 : Math.min(1, dt * 15));
-    c.fillStyle = '#0014258a'; c.fillRect(0, 0, WIDTH, 8 + this.drop);
-    c.fillStyle = `${accent}9a`; c.fillRect(0, 7 + this.drop, WIDTH, 2);
-    c.strokeStyle = game.chances === 1 ? '#ff959d' : '#b6eaf764'; c.lineWidth = 1; c.setLineDash([6, 6]);
+    if (this.drop >= 0) {
+      c.fillStyle = '#1e64ca'; c.fillRect(0, 0, WIDTH, 8 + this.drop);
+      c.fillStyle = '#85d4ff'; c.fillRect(0, 7 + this.drop, WIDTH, 2);
+    }
+    c.strokeStyle = '#ffedb5'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, LIMIT); c.lineTo(WIDTH, LIMIT); c.stroke();
+    c.strokeStyle = game.mode === 'campaign' && game.chances === 1 ? '#d63960' : '#834260'; c.lineWidth = 1.6; c.setLineDash([6, 6]);
     c.beginPath(); c.moveTo(0, LIMIT); c.lineTo(WIDTH, LIMIT); c.stroke(); c.setLineDash([]);
     for (let i = 0; i < game.board.length; i++) if (game.board[i]) {
-      const p = coords(i, this.drop); this.bubble(p.x, p.y, game.board[i], symbols);
+      const p = coords(i, this.drop, game.stagger); this.bubble(p.x, p.y, game.board[i], symbols);
     }
+    const motion = Math.sin(Math.PI * this.pose);
+    shooter(c, 65, 611, .85, this.clock, flight ? Math.max(motion, .65) : motion * .45);
+    panda(c, 306, 611, 1.02, this.clock, motion);
     if (path && !flight && game.status === 'playing') {
-      c.fillStyle = `${PALETTE[game.current - 1].hi}b0`;
+      c.fillStyle = '#fffdf4'; c.strokeStyle = '#5e3c7a'; c.lineWidth = .85;
       const points = path.points;
       let elapsed = 27;
       for (let i = 1; i < points.length; i++) {
         const a = points[i - 1], b = points[i], length = Math.hypot(a.x - b.x, a.y - b.y);
         while (elapsed < length) {
-          const t = elapsed / length; c.beginPath(); c.arc(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 2.3, 0, Math.PI * 2); c.fill(); elapsed += 14;
+          const t = elapsed / length; c.beginPath(); c.arc(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, 2.3, 0, Math.PI * 2); c.fill(); c.stroke(); elapsed += 14;
         }
         elapsed -= length;
       }
       if (path.slot >= 0) {
-        const p = coords(path.slot, this.drop);
-        c.strokeStyle = '#f9ffffb2'; c.lineWidth = 1.1; c.beginPath(); c.arc(p.x, p.y, RADIUS - 1, 0, Math.PI * 2); c.stroke();
+        const p = coords(path.slot, this.drop, game.stagger);
+        c.strokeStyle = '#804880b2'; c.lineWidth = 1.1; c.beginPath(); c.arc(p.x, p.y, RADIUS - 1, 0, Math.PI * 2); c.stroke();
       }
     }
-    c.strokeStyle = `${accent}72`; c.lineWidth = 2; c.beginPath(); c.arc(ORIGIN.x, ORIGIN.y, 26, .15, Math.PI - .15); c.stroke();
-    c.fillStyle = '#88d0d445'; c.beginPath(); c.ellipse(ORIGIN.x, ORIGIN.y + 17, 22, 7.5, 0, 0, Math.PI * 2); c.fill();
+    c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(TRAY[0].x, TRAY[0].y); c.lineTo(TRAY[1].x, TRAY[1].y); c.lineTo(TRAY[2].x, TRAY[2].y); c.closePath();
+    c.strokeStyle = '#7d56b2'; c.lineWidth = 8; c.stroke(); c.strokeStyle = '#f8ecff'; c.lineWidth = 3; c.stroke();
+    for (let i = 0; i < TRAY.length; i++) {
+      const point = TRAY[i];
+      c.beginPath(); c.arc(point.x, point.y, i === 0 ? 22 : 19, 0, Math.PI * 2); c.fillStyle = i === 0 ? '#25a0ed' : '#7654b8'; c.fill();
+      c.lineWidth = i === 0 ? 3 : 2; c.strokeStyle = i === 0 ? '#fff39e' : '#f9d9ff'; c.stroke();
+    }
     if (game.status === 'playing') {
-      const p = flight ? travel(flight.aim.points, flight.distance) : ORIGIN;
-      this.bubble(p.x, p.y, flight?.color ?? game.current, symbols);
+      this.bubble(TRAY[1].x, TRAY[1].y, game.next, symbols);
+      this.bubble(TRAY[2].x, TRAY[2].y, game.reserve, symbols);
+      const progress = this.pose ** 2;
+      const input = TRAY[this.feed];
+      const loaded = { x: ORIGIN.x + (input.x - ORIGIN.x) * progress, y: ORIGIN.y + (input.y - ORIGIN.y) * progress };
+      const point = flight ? travel(flight.aim.points, flight.distance) : loaded;
+      this.bubble(point.x, point.y, flight?.color ?? game.current, symbols);
     }
     for (const spark of this.sparks) {
       spark.life -= dt;
@@ -170,16 +178,14 @@ export class Renderer {
 export function postcard(canvas: HTMLCanvasElement) {
   canvas.width = 720; canvas.height = 720;
   const c = canvas.getContext('2d')!;
-  const g = c.createLinearGradient(20, 0, 650, 700);
-  g.addColorStop(0, '#207c90'); g.addColorStop(.45, '#16576e'); g.addColorStop(1, '#111a38');
-  c.fillStyle = g; c.fillRect(0, 0, 720, 720);
-  for (let i = 0; i < 5; i++) {
-    c.fillStyle = '#96faf813'; c.beginPath(); c.moveTo(95 + i * 75, 0); c.lineTo(120 + i * 90, 0); c.lineTo(720, 420 + i * 36); c.closePath(); c.fill();
-  }
-  for (const [x, y, r, color] of [[160, 180, 90, 2], [332, 116, 75, 1], [479, 174, 58, 5], [561, 310, 108, 4], [333, 342, 132, 3], [153, 402, 54, 1], [323, 598, 70, 2], [530, 563, 82, 6], [132, 576, 49, 4]]) {
+  c.save(); c.scale(720 / WIDTH, 720 / HEIGHT); landscape(c, 0); c.restore();
+  for (const [x, y, r, color] of [[100, 114, 65, 2], [249, 82, 68, 1], [429, 109, 82, 5], [581, 104, 60, 4], [532, 242, 84, 2], [325, 200, 61, 3], [179, 255, 65, 4], [409, 329, 66, 1], [620, 357, 45, 6], [238, 369, 48, 2]]) {
     orb(c, x, y, r, color);
   }
-  c.strokeStyle = '#c9fffb90'; c.lineWidth = 2.5;
+  shooter(c, 174, 680, 2.95);
+  panda(c, 552, 680, 2.95);
+  orb(c, 379, 498, 44, 4); orb(c, 342, 573, 36, 2); orb(c, 426, 573, 36, 3);
+  c.strokeStyle = '#fff7ccae'; c.lineWidth = 2.5;
   const random = rng(2388);
   for (let i = 0; i < 22; i++) { c.beginPath(); c.arc(720 * random(), 720 * random(), 2 + 12 * random(), 0, Math.PI * 2); c.stroke(); }
 }

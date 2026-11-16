@@ -1,16 +1,18 @@
-import { Game, type Aim, type Result } from './game';
-import { ANGLE_LIMIT, CHAPTERS, LEVELS, ORIGIN, PALETTE, WIDTH } from './levels';
-import { Renderer, orb, postcard, travel, type Flight } from './render';
+import { Game, type Aim, type Mode, type Result } from './game';
+import { ANGLE_LIMIT, CHAPTERS, HEIGHT, LEVELS, ORIGIN, PALETTE, WIDTH } from './levels';
+import { Renderer, postcard, travel, type Flight } from './render';
+import { TRAY } from './scenery';
 import { readSave, writeSave } from './save';
 
 const get = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-const screen = get('shell'), canvas = get<HTMLCanvasElement>('board'), next = get<HTMLCanvasElement>('next');
+const screen = get('shell'), canvas = get<HTMLCanvasElement>('board');
 const renderer = new Renderer(canvas), save = readSave();
 const menu = get('menu'), play = get('play'), overlay = get('overlay'), dialog = get('dialog');
 const soundButton = get('sound'), symbolsButton = get('symbols'), pauseButton = get<HTMLButtonElement>('pause');
-const shootButton = get<HTMLButtonElement>('shoot'), swapButton = get<HTMLButtonElement>('swap');
+const shootButton = get<HTMLButtonElement>('shoot'), endlessButton = get<HTMLButtonElement>('endless');
+const slots = [...document.querySelectorAll<HTMLButtonElement>('.bubble-slot')];
 const pressure = get('pressure'), remaining = get('remaining'), score = get('score'), callout = get('callout');
-const nextLabel = get('next-label'), missesLeft = get('misses-left');
+const missesLeft = get('misses-left'), rowMeter = get('row-meter'), rowFill = rowMeter.querySelector('i')!;
 let game: Game | undefined, flight: Flight | undefined, path: Aim | undefined;
 let angle = 0, chosenChapter = 0, pointer: number | undefined, panel = '';
 let last = performance.now(), nextShot = 0, messageTimeout = 0, finish = 0;
@@ -57,9 +59,11 @@ function close(restore = true) {
 }
 
 function home() {
+  saveEndless();
   game = undefined; flight = undefined; pointer = undefined; aimKeys.clear();
   play.hidden = true; menu.hidden = false; close(false);
   get('start').innerHTML = `${save.best.length >= LEVELS.length ? 'Replay level 100' : `Play level ${format(save.best.length + 1)}`} <span aria-hidden="true">→</span>`;
+  endlessButton.innerHTML = `Endless <span aria-hidden="true">∞</span>${save.endlessBest ? `<small>Best ${save.endlessBest.toLocaleString('en-US')}</small>` : ''}`;
 }
 
 function levels(chapter = Math.min(CHAPTERS.length - 1, Math.floor(save.best.length / 10))) {
@@ -73,23 +77,26 @@ function levels(chapter = Math.min(CHAPTERS.length - 1, Math.floor(save.best.len
 }
 
 function help() {
-  modal('help', 'How to play', `<p>Aim at a group and release to shoot. Connect three or more bubbles of the same color to pop them. Bubbles with no connection to the ceiling drop.</p><p>Bank shots off the walls. Tap Swap or press X to switch to the next bubble. After the miss meter runs out, the ceiling moves down. Clear every bubble before the reef crosses the dashed line.</p><p>On a keyboard, hold ← or → to aim and press Space to shoot. Press Esc to pause.</p><nav>${action('back', 'Back', true)}</nav>`);
+  modal('help', 'How to play', `<p>Aim and release to shoot. Match three or more bubbles of one color and knock loose anything below them. Bank shots off the walls to reach around groups.</p><p>The top bubble in the triangle is loaded. Tap a lower bubble to load it. Right-click or press X to rotate all three.</p><p>In Endless, new rows arrive on a timer. In Campaign, misses push the ceiling down. In both modes you lose if a bubble reaches the dashed line.</p><p>On a keyboard, hold ← or → to aim and press Space to shoot. Press Esc to pause.</p><nav>${action('back', 'Back', true)}</nav>`);
 }
 
 function hud() {
   if (!game) return;
   score.textContent = game.score.toLocaleString('en-US');
-  remaining.textContent = String(game.left);
-  missesLeft.textContent = `${game.chances} misses before the ceiling drops`;
-  pressure.innerHTML = Array.from({ length: game.level.tension }, (_, i) => `<i class="${i >= game!.chances ? 'empty' : game!.chances === 1 ? 'last' : ''}"></i>`).join('');
-  const context = next.getContext('2d')!;
-  context.clearRect(0, 0, next.width, next.height);
-  orb(context, 36, 36, 29, game.next, save.symbols);
-  const nextName = PALETTE[game.next - 1].name;
-  nextLabel.textContent = nextName;
-  swapButton.setAttribute('aria-label', `Swap to ${nextName}`);
+  const endless = game.mode === 'endless';
+  remaining.textContent = String(endless ? game.waves : game.left);
+  if (!endless) {
+    missesLeft.textContent = `${game.chances} misses before the ceiling drops`;
+    pressure.innerHTML = Array.from({ length: game.level.tension }, (_, i) => `<i class="${i >= game!.chances ? 'empty' : game!.chances === 1 ? 'last' : ''}"></i>`).join('');
+  }
   const disabled = !!flight || game.status !== 'playing';
-  shootButton.disabled = swapButton.disabled = disabled;
+  const colors = [game.current, game.next, game.reserve];
+  slots.forEach((button, index) => {
+    const color = PALETTE[colors[index] - 1].name;
+    button.setAttribute('aria-label', index === 0 ? `${color} loaded. Rotate bubbles` : `Load ${color}, reserve ${index}`);
+    button.disabled = disabled;
+  });
+  shootButton.disabled = disabled;
   pauseButton.disabled = game.status !== 'playing';
 }
 
@@ -104,16 +111,24 @@ function message(text: string, seconds: number) {
   callout.textContent = text; callout.hidden = false; messageTimeout = seconds;
 }
 
-function start(index: number) {
+function start(index: number, mode: Mode = 'campaign') {
   if (index < 0 || index >= LEVELS.length || index > save.best.length) return;
-  game = new Game(index);
+  game = new Game(index, mode, mode === 'endless' ? Date.now() : undefined);
   flight = undefined; path = undefined; pointer = undefined; aimKeys.clear();
   nextShot = finish = messageTimeout = 0;
   close(false); menu.hidden = true; play.hidden = false; callout.hidden = true;
   renderer.reset();
-  get('chapter').textContent = CHAPTERS[game.level.chapter][0];
-  get('level-title').textContent = `Level ${format(index + 1)} / ${LEVELS.length}`;
-  if (index === 0) message('Match three. Aim and release to shoot.', 4);
+  const endless = mode === 'endless';
+  get('chapter').textContent = endless ? 'SURVIVAL' : CHAPTERS[game.level.chapter][0];
+  get('level-title').textContent = endless ? 'Endless' : `Level ${format(index + 1)} / ${LEVELS.length}`;
+  get('count-label').textContent = endless ? 'ROWS' : 'BUBBLES';
+  get('pressure-label').textContent = endless ? 'NEXT ROW' : 'MISSES BEFORE DROP';
+  pressure.hidden = endless;
+  rowMeter.hidden = !endless;
+  if (endless) {
+    rowFill.style.width = '100%'; missesLeft.textContent = '';
+    message('Keep the bubbles above the line.', 3);
+  } else if (index === 0) message('Match three. Aim and release to shoot.', 3);
   aimAt(0); hud();
   canvas.focus({ preventScroll: true });
 }
@@ -127,13 +142,15 @@ function fire() {
   hud();
 }
 
-function swap() {
+function swap(pick?: 1 | 2) {
   if (!game || !ready()) return;
-  audioOn(); game.swap(); sound([470]); hud();
+  audioOn(); game.swap(pick); renderer.pushBubble(pick); sound([470]); hud();
 }
 
 function settled(result: Result) {
-  renderer.pop(result);
+  renderer.pop(result, game?.stagger ?? 0);
+  renderer.pushBubble(1);
+  saveEndless();
   if (result.removed.length) {
     sound(result.removed.some(b => b.falling) ? [520, 690, 890] : [510, 720]);
     if (result.removed.length >= 8 && game?.status === 'playing') message(`${result.removed.length} bubbles cleared`, .8);
@@ -152,10 +169,20 @@ function results() {
     writeSave(save);
     sound([523, 659, 784, 1047], .085);
     modal('result', game.level.number === LEVELS.length ? 'Reef complete!' : 'Level clear!', `<p class="stars" aria-label="${game.stars} of 3 stars">${'★'.repeat(game.stars)}${'☆'.repeat(3 - game.stars)}</p><p>${game.score.toLocaleString('en-US')} points · ${game.shots} shots</p><nav>${game.level.number < LEVELS.length ? action('next-level', 'Next level', true) : ''}${action('retry', 'Replay')}${action('level-select', 'Level select')}${action('home', 'Main menu')}</nav>`);
+  } else if (game.mode === 'endless') {
+    saveEndless();
+    sound([390, 280, 150]);
+    modal('result', 'Line reached', `<p>${game.score.toLocaleString('en-US')} points · ${game.waves} rows survived</p><p>Best ${save.endlessBest.toLocaleString('en-US')}</p><nav>${action('retry', 'Play Endless again', true)}${action('home', 'Main menu')}</nav>`);
   } else {
     sound([390, 280, 150]);
     modal('result', 'Reef overflowed', `<p>${game.left} bubbles left · ${game.score.toLocaleString('en-US')} points</p><nav>${action('retry', 'Try again', true)}${action('level-select', 'Level select')}${action('home', 'Main menu')}</nav>`);
   }
+}
+
+function saveEndless() {
+  if (!game || game.mode !== 'endless' || game.score <= save.endlessBest) return;
+  save.endlessBest = game.score;
+  writeSave(save);
 }
 
 function pause() {
@@ -178,6 +205,12 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => { if (ready() && (pointer === e.pointerId || (pointer === undefined && e.pointerType === 'mouse'))) point(e); });
 canvas.addEventListener('pointerup', e => { if (pointer === e.pointerId) { pointer = undefined; if (point(e)) fire(); } });
 canvas.addEventListener('lostpointercapture', e => { if (pointer === e.pointerId) pointer = undefined; });
+get('arena').addEventListener('contextmenu', e => { e.preventDefault(); swap(); });
+slots.forEach((button, index) => {
+  button.style.left = `${TRAY[index].x / WIDTH * 100}%`;
+  button.style.top = `${TRAY[index].y / HEIGHT * 100}%`;
+  button.onclick = () => { swap(index === 1 || index === 2 ? index : undefined); canvas.focus({ preventScroll: true }); };
+});
 
 const leftKeys = ['ArrowLeft', 'KeyA'], rightKeys = ['ArrowRight', 'KeyD'];
 window.addEventListener('keydown', e => {
@@ -202,12 +235,12 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 get('home').onclick = home;
 get('start').onclick = () => { audioOn(); start(Math.min(save.best.length, LEVELS.length - 1)); };
+endlessButton.onclick = () => { audioOn(); start(0, 'endless'); };
 get('levels').onclick = () => levels();
 get('help').onclick = help;
 soundButton.onclick = () => { save.muted = !save.muted; labels(); writeSave(save); audioOn(); if (!save.muted) sound([580]); };
 symbolsButton.onclick = () => { save.symbols = !save.symbols; labels(); writeSave(save); hud(); };
 pauseButton.onclick = pause;
-swapButton.onclick = swap;
 shootButton.onclick = fire;
 dialog.onclick = e => {
   const target = (e.target as Element).closest<HTMLButtonElement>('button[data-action]');
@@ -216,7 +249,7 @@ dialog.onclick = e => {
   const id = target.dataset.action!;
   if (id === 'back') close();
   else if (id === 'home') home();
-  else if (id === 'retry' && game) start(game.index);
+  else if (id === 'retry' && game) start(game.index, game.mode);
   else if (id === 'next-level' && game) start(game.index + 1);
   else if (id === 'level-select') { const chapter = game?.level.chapter; home(); levels(chapter); }
   else if (id === 'prev-chapter' && chosenChapter > 0) levels(chosenChapter - 1);
@@ -242,6 +275,16 @@ function frame(now: number) {
       } else if (ready() && aimKeys.size) {
         const direction = Number(rightKeys.some(key => aimKeys.has(key))) - Number(leftKeys.some(key => aimKeys.has(key)));
         if (direction) aimAt(angle + direction * dt * 1.5);
+      }
+      if (game.mode === 'endless' && game.status === 'playing') {
+        if (game.advance(dt, !flight)) {
+          renderer.rowArrived();
+          path = game.trace(angle);
+          nextShot = Math.max(nextShot, .26);
+          sound([230, 340], .036);
+          hud();
+        }
+        rowFill.style.width = `${100 * game.untilRow / game.rowInterval}%`;
       }
       if (game.status !== 'playing' && (finish += dt) >= .54) results();
     }

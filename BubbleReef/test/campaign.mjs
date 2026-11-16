@@ -24,13 +24,16 @@ export function solve(index, width = 5) {
     const candidates = new Map();
     for (const game of frontier) {
       const moves = paths(game);
-      for (const path of moves) for (let swap = 0; swap <= Number(game.current !== game.next); swap++) {
+      const picks = [0];
+      if (game.next !== game.current) picks.push(1);
+      if (game.reserve !== game.current && game.reserve !== game.next) picks.push(2);
+      for (const path of moves) for (const swap of picks) {
         const next = game.clone();
-        if (swap) next.swap();
+        if (swap) next.swap(swap);
         const result = next.resolve(path);
         if (next.status === 'won') return next;
         if (next.status !== 'playing') continue;
-        const key = `${next.current}/${next.next}/${next.drop}/${next.pressure}/${next.board.join('')}`;
+        const key = `${next.current}/${next.next}/${next.reserve}/${next.drop}/${next.pressure}/${next.board.join('')}`;
         const value = rate(next, result);
         if (!candidates.has(key) || value > candidates.get(key).value) candidates.set(key, { next, value });
       }

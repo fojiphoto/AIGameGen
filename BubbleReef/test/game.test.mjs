@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLS, Game, LEVELS, connected, coords, neighbors, slot } from '../build/test/core.mjs';
+import { COLS, Game, LEVELS, LIMIT, RADIUS, connected, coords, neighbors, rowsize, slot } from '../build/test/core.mjs';
 import { solve } from './campaign.mjs';
 
 test('100 unique layouts are anchored, with increasing depth, color count and ceiling pressure across chapters', () => {
@@ -63,7 +63,7 @@ test('a failed match at the pressure threshold lowers the board and can trigger 
 test('swap preserves the queue and the shooter replaces colors removed from play', () => {
   const game = new Game(0);
   const [current, next] = [game.current, game.next];
-  game.swap();
+  game.swap(1);
   assert.deepEqual([game.current, game.next], [next, current]);
   game.board.fill(0);
   game.board[slot(0, 4)] = game.board[slot(0, 5)] = 1;
@@ -81,4 +81,53 @@ test('every level can be cleared with real aim angles, visible colors and swaps'
     assert.equal(win?.status, 'won', `Level ${level.number}`);
     assert.equal(win.left, 0, `Level ${level.number}`);
   }
+});
+
+test('the three-slot triangle can load either reserve or cycle through all colors', () => {
+  const game = new Game(0);
+  const original = [game.current, game.next, game.reserve];
+  assert.equal(new Set(original).size, 3);
+  game.swap(2);
+  assert.deepEqual([game.current, game.next, game.reserve], [original[2], original[1], original[0]]);
+  game.swap(2);
+  game.swap();
+  assert.deepEqual([game.current, game.next, game.reserve], [original[1], original[2], original[0]]);
+  game.swap(); game.swap();
+  assert.deepEqual([game.current, game.next, game.reserve], original);
+});
+
+test('Endless inserts a staggered row on time and waits for a shot already in flight', () => {
+  const game = new Game(0, 'endless');
+  const top = [...game.board.slice(0, COLS)];
+  assert.equal(game.advance(7.99), false);
+  assert.equal(game.advance(.02, false), false);
+  assert.equal(game.advance(0), true);
+  assert.equal(game.waves, 1);
+  assert.equal(game.stagger, 1);
+  assert.ok(game.rowInterval < 8);
+  assert.deepEqual([...game.board.slice(COLS, 2 * COLS)], top);
+  assert.equal(coords(4).x, coords(COLS + 4, 0, game.stagger).x);
+  assert.equal(game.board.slice(0, COLS).filter(Boolean).length, rowsize(0, 1));
+  assert.equal(game.left, game.board.filter(Boolean).length);
+  const hit = game.trace(0).slot;
+  assert.ok(hit >= 0 && hit % COLS < rowsize(Math.floor(hit / COLS), game.stagger));
+});
+
+test('Endless keeps running after a clean board and ends when an incoming row pushes a bubble to the line', () => {
+  const game = new Game(0, 'endless');
+  game.board.fill(0);
+  game.board[4] = game.board[5] = game.current = 1;
+  game.left = 2;
+  game.resolve({ points: [], slot: slot(1, 4), bounces: 0 });
+  assert.equal(game.status, 'playing');
+  assert.equal(game.left, 0);
+  let previousBottom = 0;
+  for (let i = 0; i < 30 && game.status === 'playing'; i++) {
+    previousBottom = coords(slot(game.deepest, 0)).y + RADIUS;
+    assert.equal(game.advance(game.untilRow), true);
+  }
+  assert.equal(game.status, 'lost');
+  assert.ok(previousBottom < LIMIT);
+  assert.ok(coords(slot(game.deepest, 0)).y + RADIUS >= LIMIT);
+  assert.equal(game.advance(10), false);
 });

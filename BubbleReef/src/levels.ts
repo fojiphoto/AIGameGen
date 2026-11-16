@@ -1,5 +1,5 @@
 export const WIDTH = 374;
-export const HEIGHT = 600;
+export const HEIGHT = 632;
 export const DIAMETER = 34;
 export const RADIUS = 16;
 export const GAP = Math.sqrt(3) * DIAMETER / 2;
@@ -8,26 +8,28 @@ export const ORIGIN = { x: WIDTH / 2, y: 557 };
 export const LIMIT = 500;
 export const ANGLE_LIMIT = 76 * Math.PI / 180;
 export const COLS = 11;
-export const rowsize = (row: number) => COLS - row % 2;
+export const rowsize = (row: number, stagger = 0) => COLS - (row + stagger) % 2;
 export const slot = (row: number, col: number) => row * COLS + col;
 export const rowOf = (cell: number) => Math.floor(cell / COLS);
 export const colOf = (cell: number) => cell % COLS;
-export const coords = (cell: number, drop = 0) => ({
-  x: DIAMETER * (colOf(cell) + .5 + rowOf(cell) % 2 * .5), y: 24 + drop + GAP * rowOf(cell),
+export const coords = (cell: number, drop = 0, stagger = 0) => ({
+  x: DIAMETER * (colOf(cell) + .5 + (rowOf(cell) + stagger) % 2 * .5), y: 24 + drop + GAP * rowOf(cell),
 });
-export const neighbors = Array.from({ length: MAX_ROWS * COLS }, (_, i) => {
-  const row = rowOf(i), col = colOf(i), left = col - (row % 2 === 0 ? 1 : 0);
+const neighborTables = [0, 1].map(stagger => Array.from({ length: MAX_ROWS * COLS }, (_, i) => {
+  const row = rowOf(i), col = colOf(i), left = col - ((row + stagger) % 2 === 0 ? 1 : 0);
   return [[row, col - 1], [row, col + 1], [row - 1, left], [row - 1, left + 1], [row + 1, left], [row + 1, left + 1]]
-    .filter(([r, c]) => r >= 0 && r < MAX_ROWS && c >= 0 && c < rowsize(r)).map(([r, c]) => slot(r, c));
-});
+    .filter(([r, c]) => r >= 0 && r < MAX_ROWS && c >= 0 && c < rowsize(r, stagger)).map(([r, c]) => slot(r, c));
+}));
+export const neighbors = neighborTables[0];
+export const links = (cell: number, stagger = 0) => neighborTables[stagger][cell];
 
 export const PALETTE = [
-  { name: 'Coral', hi: '#ffd8cc', mid: '#f66e7f', low: '#a32665', mark: 'heart' },
-  { name: 'Lagoon', hi: '#d3fbff', mid: '#21cfdf', low: '#177897', mark: 'wave' },
-  { name: 'Mango', hi: '#fff5c6', mid: '#ffc551', low: '#bc701c', mark: 'sun' },
-  { name: 'Orchid', hi: '#f5dcff', mid: '#ab75f4', low: '#584095', mark: 'diamond' },
-  { name: 'Kelp', hi: '#e8ffb4', mid: '#8ed562', low: '#367d58', mark: 'leaf' },
-  { name: 'Cobalt', hi: '#e0ebff', mid: '#6d94ff', low: '#303f9b', mark: 'ring' },
+  { name: 'Coral', hi: '#fff0b0', mid: '#ff411d', low: '#a10b35', mark: 'heart' },
+  { name: 'Lagoon', hi: '#ddffff', mid: '#159bea', low: '#1445a7', mark: 'wave' },
+  { name: 'Mango', hi: '#ffffcd', mid: '#ffc321', low: '#d77608', mark: 'sun' },
+  { name: 'Orchid', hi: '#ffdeff', mid: '#cd32f1', low: '#7226aa', mark: 'diamond' },
+  { name: 'Kelp', hi: '#efffbc', mid: '#73da42', low: '#26904a', mark: 'leaf' },
+  { name: 'Cobalt', hi: '#e3dfff', mid: '#6d63fa', low: '#332392', mark: 'ring' },
 ] as const;
 
 export const CHAPTERS = [
@@ -68,10 +70,10 @@ function silhouette(pattern: number, row: number, col: number, depth: number) {
   }
 }
 
-export function connected(board: Int8Array) {
+export function connected(board: Int8Array, stagger = 0) {
   const seen = new Uint8Array(board.length), queue: number[] = [];
-  for (let col = 0; col < COLS; col++) if (board[col]) { queue.push(col); seen[col] = 1; }
-  for (let i = 0; i < queue.length; i++) for (const dest of neighbors[queue[i]]) {
+  for (let col = 0; col < rowsize(0, stagger); col++) if (board[col]) { queue.push(col); seen[col] = 1; }
+  for (let i = 0; i < queue.length; i++) for (const dest of links(queue[i], stagger)) {
     if (seen[dest] || !board[dest]) continue;
     queue.push(dest);
     seen[dest] = 1;

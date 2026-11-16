@@ -1,8 +1,8 @@
 # Bubble Reef
 
-Bubble Shooter with 100 boards across 10 underwater chapters. Aim and release to shoot, bank off the walls, and connect three same-color bubbles to pop them. Unsupported bubbles fall. The ceiling descends when the miss meter runs out. Clear the board to earn stars and unlock the next level.
+Bubble Shooter with a 100-level campaign and an Endless survival mode. Aim and release to shoot, bank off the walls, and connect three same-color bubbles to pop them. Unsupported bubbles fall. In Campaign, misses lower the ceiling. Clear the board to earn stars and unlock the next level. In Endless, new rows arrive faster as you survive. The run ends when a bubble reaches the dashed line.
 
-Use mouse or touch to aim and release. On a keyboard, hold Left or Right to aim, press Space to shoot, X to swap with the next bubble, and Esc to pause. Bubble symbols can help distinguish colors. Level progress, stars, and settings save on the device.
+Use mouse or touch to aim and release. The magician shoots the top bubble in the triangle, and the panda feeds the next one. Tap a reserve bubble to load it. Right-click the arena or press X to rotate all three colors. On a keyboard, hold Left or Right to aim, press Space to shoot, and Esc to pause. Bubble symbols can help distinguish colors. Level progress, stars, the Endless high score, and settings save on the device.
 
 From the workspace root with Node 22 or later:
 
