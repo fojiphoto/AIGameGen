@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5758568476782265" crossorigin="anonymous"></script>
 <style>
   :root{--ink:#06281c;--panel:rgba(0,0,0,.24);--gold:#fbbf24;--leaf2:#a3d977;--text:#eaf5ee;--muted:#a9c6b5;
     --line:rgba(255,255,255,.08);--f-disp:'Bungee',cursive;--f-body:'Fredoka',sans-serif;
@@ -56,6 +57,12 @@
   .ad-left,.ad-right{width:160px;height:600px;max-height:calc(100vh - var(--chrome))}
   .ad-inline{display:none;width:min(100%,728px);height:90px}
   .ad:not(.empty){margin-top:14px}
+  /* A live unit shows its "Advertisement" tag only once Google has filled it, and the inline unit
+     folds away when Google has nothing to show, so a visitor never sees a labelled empty box. The
+     skyscrapers keep their column either way, so the game never shifts sideways. */
+  .ad:not(.empty) .ad-tag{visibility:hidden}
+  .ad:not(.empty):has(ins[data-ad-status="filled"]) .ad-tag{visibility:visible}
+  .ad-inline:not(.empty):has(ins[data-ad-status="unfilled"]){display:none !important}
   .sm{display:none}
 
   .info{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:16px 18px;border-radius:18px;
@@ -118,8 +125,9 @@
 
 <div class="portal">
   <aside class="rail left">
-      <div class="ad ad-left empty" aria-hidden="true">
-        <span class="ad-tag">Ad space · <span class="lg">160 × 600</span></span>
+      <div class="ad ad-left">
+        <span class="ad-tag">Advertisement</span>
+        <ins class="adsbygoogle" style="display:inline-block;width:160px;height:600px" data-ad-client="ca-pub-5758568476782265" data-ad-slot="1907179195"></ins>
       </div>
   </aside>
 
@@ -135,8 +143,9 @@
       <p class="blurb">Eat, grow, and do not run into yourself.</p>
     </section>
 
-      <div class="ad ad-inline empty" aria-hidden="true">
-        <span class="ad-tag">Ad space · <span class="lg">728 × 90</span><span class="sm">320 × 100</span></span>
+      <div class="ad ad-inline">
+        <span class="ad-tag">Advertisement</span>
+        <ins class="adsbygoogle" style="display:block;width:100%;height:90px" data-ad-client="ca-pub-5758568476782265" data-ad-slot="9594097523" data-ad-format="horizontal" data-full-width-responsive="true"></ins>
       </div>
 
     <section class="shelf" aria-label="Recently played">
@@ -213,8 +222,9 @@
   </main>
 
   <aside class="rail right">
-      <div class="ad ad-right empty" aria-hidden="true">
-        <span class="ad-tag">Ad space · <span class="lg">160 × 600</span></span>
+      <div class="ad ad-right">
+        <span class="ad-tag">Advertisement</span>
+        <ins class="adsbygoogle" style="display:inline-block;width:160px;height:600px" data-ad-client="ca-pub-5758568476782265" data-ad-slot="1907179195"></ins>
       </div>
   </aside>
 </div>
@@ -250,6 +260,22 @@
   if (!more.children.length) more.parentNode.hidden = true;
 
   try { localStorage.setItem(KEY, JSON.stringify([SLUG].concat(recent).slice(0, 12))); } catch (e) {}
+
+  // ── ads ──────────────────────────────────────────────────────────────────
+  // Only the units this screen actually shows are requested: the skyscrapers are hidden on
+  // tablets and phones and the inline unit on desktops, and AdSense rejects a unit with no width
+  // ("No slot size for availableWidth=0"). A push fills the first unfilled unit in the page,
+  // visible or not, so the hidden ones are taken out of the page first.
+  var units = Array.prototype.slice.call(document.querySelectorAll('ins.adsbygoogle'));
+  units.forEach(function (ins) {
+    if (ins.offsetWidth > 0) return;
+    var box = ins.parentNode;
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+  });
+  units.forEach(function (ins) {
+    if (!ins.isConnected) return;
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+  });
 
   // ── keyboard focus ───────────────────────────────────────────────────────
   // The games listen for keys on their own window, which only hears them while the frame has

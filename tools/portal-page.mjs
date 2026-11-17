@@ -57,8 +57,13 @@
  * Leave `client` empty and every slot stays a placeholder.
  */
 export const ADSENSE = {
-  client: '',
-  slots: { left: '', right: '', inline: '' },
+  // Factorial Studio's AdSense account. factorialstudio.com is approved there (2026-11-04), and
+  // that approval covers every path on the domain, this arcade included. The root ads.txt names it.
+  client: 'ca-pub-5758568476782265',
+  // Ad-unit ids are account-wide, not per site, so these reuse the GameZone units of the same
+  // shape: "GameZone - rail" for both skyscrapers and "GameZone - banner" for the inline unit.
+  // Give the arcade its own units here if its earnings ever need reporting separately.
+  slots: { left: '1907179195', right: '1907179195', inline: '9594097523' },
 };
 
 /** Where the game files are published, relative to docs/. */
@@ -85,7 +90,6 @@ function adSlot(pos) {
     return `<div class="ad ad-${pos}">
         <span class="ad-tag">Advertisement</span>
         <ins class="adsbygoogle" style="${style}" data-ad-client="${esc(ADSENSE.client)}" data-ad-slot="${esc(ADSENSE.slots[pos])}"${fmt}></ins>
-        <script>(window.adsbygoogle = window.adsbygoogle || []).push({});</script>
       </div>`;
   }
   return `<div class="ad ad-${pos} empty" aria-hidden="true">
@@ -169,6 +173,12 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
   .ad-left,.ad-right{width:160px;height:600px;max-height:calc(100vh - var(--chrome))}
   .ad-inline{display:none;width:min(100%,728px);height:90px}
   .ad:not(.empty){margin-top:14px}
+  /* A live unit shows its "Advertisement" tag only once Google has filled it, and the inline unit
+     folds away when Google has nothing to show, so a visitor never sees a labelled empty box. The
+     skyscrapers keep their column either way, so the game never shifts sideways. */
+  .ad:not(.empty) .ad-tag{visibility:hidden}
+  .ad:not(.empty):has(ins[data-ad-status="filled"]) .ad-tag{visibility:visible}
+  .ad-inline:not(.empty):has(ins[data-ad-status="unfilled"]){display:none !important}
   .sm{display:none}
 
   .info{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:16px 18px;border-radius:18px;
@@ -297,6 +307,22 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
   if (!more.children.length) more.parentNode.hidden = true;
 
   try { localStorage.setItem(KEY, JSON.stringify([SLUG].concat(recent).slice(0, 12))); } catch (e) {}
+
+  // ── ads ──────────────────────────────────────────────────────────────────
+  // Only the units this screen actually shows are requested: the skyscrapers are hidden on
+  // tablets and phones and the inline unit on desktops, and AdSense rejects a unit with no width
+  // ("No slot size for availableWidth=0"). A push fills the first unfilled unit in the page,
+  // visible or not, so the hidden ones are taken out of the page first.
+  var units = Array.prototype.slice.call(document.querySelectorAll('ins.adsbygoogle'));
+  units.forEach(function (ins) {
+    if (ins.offsetWidth > 0) return;
+    var box = ins.parentNode;
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+  });
+  units.forEach(function (ins) {
+    if (!ins.isConnected) return;
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+  });
 
   // ── keyboard focus ───────────────────────────────────────────────────────
   // The games listen for keys on their own window, which only hears them while the frame has
