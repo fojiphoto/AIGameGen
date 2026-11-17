@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff6e1">
+  <meta name="description" content="Draw a ribbon, close the loop, and claim the arena in Color Loop.">
+  <title>Color Loop</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="game.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="mast"><button id="home" class="wordmark" aria-label="Color Loop home"><i></i> Color Loop</button><button id="sound" class="quiet" aria-pressed="false">Sound on</button></header>
+    <section id="menu" class="menu">
+      <div class="intro">
+        <p class="eyebrow">FACTORIAL STUDIO</p>
+        <h1>Color<br><span>Loop</span><i>.</i></h1>
+        <p class="lede">Draw a ribbon. Loop back to your color. Claim everything inside.</p>
+        <div class="pick"><button id="campaign" class="mode campaign"><span>Campaign</span><small>15 stages</small><b aria-hidden="true">↗</b></button><button id="endless" class="mode endless"><span>Endless</span><small id="record">Beat your best</small><b aria-hidden="true">↗</b></button></div>
+        <div class="subactions"><button id="skins" class="quiet">Mascots</button><button id="help" class="quiet">How to play</button></div>
+      </div>
+      <div class="cover-frame"><canvas id="cover" aria-label="Colorful toy mascots on paper territory"></canvas><span class="tape" aria-hidden="true"></span><span id="skin-name" class="sticker">Kiwi Bloom</span></div>
+    </section>
+    <section id="play" class="play" hidden>
+      <header class="play-head"><div><p id="mode-label" class="eyebrow"></p><h2 id="stage-name"></h2></div><button id="pause" class="quiet">Pause</button></header>
+      <div class="play-grid">
+        <div class="arena"><canvas id="board" aria-label="Territory arena"></canvas><div id="cue" class="cue" hidden></div></div>
+        <aside class="scorecard" aria-label="Match stats"><div><span class="eyebrow">YOUR TERRITORY</span><strong id="share">0.0%</strong><div class="meter"><i id="meter"></i></div><p id="target"></p></div><dl><div><dt>Peak</dt><dd id="peak">0%</dd></div><div><dt>Cuts</dt><dd id="cuts">0</dd></div></dl><ol id="ranks" aria-label="Territory leaderboard"></ol></aside>
+      </div>
+      <footer class="play-foot"><p>Arrow keys / WASD or drag the arena</p><div class="pad" aria-label="Direction buttons"><button data-dir="2" aria-label="Move left">←</button><button data-dir="3" aria-label="Move up">↑</button><button data-dir="1" aria-label="Move down">↓</button><button data-dir="0" aria-label="Move right">→</button></div></footer>
+    </section>
+  </main>
+  <div id="overlay" class="overlay" hidden><section id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"></section></div>
+</body>
+</html>

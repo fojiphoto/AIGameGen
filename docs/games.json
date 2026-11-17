@@ -1,5 +1,35 @@
 [
   {
+    "slug": "bubble-reef",
+    "title": "BUBBLE REEF",
+    "kind": "native",
+    "packageId": "com.factorialstudio.bubblereef",
+    "palette": {
+      "bg": "#194da0",
+      "bgAccent": "#453478",
+      "ground": "#ffd567",
+      "player": "#159bea",
+      "obstacle": "#cd32f1",
+      "accent": "#ffc321"
+    },
+    "orientation": "sensorPortrait"
+  },
+  {
+    "slug": "color-loop",
+    "title": "COLOR LOOP",
+    "kind": "native",
+    "packageId": "com.factorialstudio.colorloop",
+    "palette": {
+      "bg": "#fff6e1",
+      "bgAccent": "#eedcfc",
+      "ground": "#c9f67d",
+      "player": "#5bcf36",
+      "obstacle": "#ae65ef",
+      "accent": "#fd83cb"
+    },
+    "orientation": "sensorPortrait"
+  },
+  {
     "slug": "pac-maze",
     "title": "PAC MAZE",
     "kind": "native",

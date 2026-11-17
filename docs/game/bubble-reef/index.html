@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#194da0">
+  <meta name="description" content="Play 100 bubble shooter puzzles or keep the descending bubbles above the line in Endless.">
+  <title>Bubble Reef</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="game.js"></script>
+</head>
+<body>
+  <main id="shell" class="shell">
+    <header class="mast">
+      <button id="home" class="wordmark" aria-label="Bubble Reef home"><i></i> Bubble Reef</button>
+      <div class="header-actions"><button id="sound" class="quiet" aria-pressed="false">Sound on</button><button id="symbols" class="quiet" aria-pressed="true">Symbols on</button></div>
+    </header>
+    <section id="menu" class="menu">
+      <div class="intro">
+        <h1>Bubble<br><em>Reef.</em></h1>
+        <p class="lede">100 campaign levels and an Endless challenge.</p>
+        <div class="modes"><button id="start" class="primary">Play level 01 <span aria-hidden="true">→</span></button><button id="endless" class="primary endless">Endless <span aria-hidden="true">∞</span></button></div>
+        <div class="menu-actions"><button id="levels" class="quiet">Level select</button><button id="help" class="quiet">How to play</button></div>
+      </div>
+      <canvas id="postcard" aria-label="A young magician and panda under colorful bubbles"></canvas>
+    </section>
+    <section id="play" class="play" hidden>
+      <header class="play-header"><div><p id="chapter" class="eyebrow"></p><h2 id="level-title"></h2></div><button id="pause" class="quiet">Pause</button></header>
+      <div class="game-grid">
+        <aside class="side" aria-label="Level stats">
+          <div class="stats">
+            <div><span class="eyebrow">SCORE</span><strong id="score">0</strong></div>
+            <div><span id="count-label" class="eyebrow">BUBBLES</span><strong id="remaining">0</strong></div>
+          </div>
+          <div class="pressure"><span id="pressure-label" class="eyebrow">MISSES BEFORE DROP</span><div id="pressure" class="pips" aria-hidden="true"></div><div id="row-meter" class="row-meter" hidden><i></i></div><strong id="misses-left" class="screen-reader" aria-live="polite"></strong></div>
+          <button id="shoot" class="primary shoot">Shoot</button>
+        </aside>
+        <div id="arena" class="arena"><canvas id="board" tabindex="0" aria-label="Bubble shooter playfield. Use left and right to aim, Space to shoot, and X or right click to switch bubbles."></canvas><div id="callout" class="callout" role="status" hidden></div><div class="tray" role="group" aria-label="Bubble queue"><button class="bubble-slot" data-slot="0"></button><button class="bubble-slot" data-slot="1"></button><button class="bubble-slot" data-slot="2"></button></div></div>
+      </div>
+    </section>
+  </main>
+  <div id="overlay" class="overlay" hidden><section id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" class="dialog"></section></div>
+</body>
+</html>

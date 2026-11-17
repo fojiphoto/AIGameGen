@@ -70,6 +70,33 @@ const SHOWCASE = [
  */
 const NATIVE_EXTRAS = [
   {
+    slug: 'bubble-reef',
+    title: 'BUBBLE REEF',
+    label: 'Hand-built',
+    family: 'bubble shooter',
+    from: join(ROOT, 'BubbleReef', 'build', 'web'),
+    blurb: 'Aim, bank off the walls and pop three of a colour. A 100-level campaign where '
+         + 'misses lower the ceiling, and an Endless mode where the rows come faster.',
+    stats: 'TypeScript + Canvas · 157 KB total · all 100 levels proved winnable by a solver',
+    note: 'Starts instantly. Mouse, touch or keyboard. Plays offline once loaded.',
+    palette: { bg: '#194da0', bgAccent: '#453478', ground: '#ffd567', player: '#159bea', obstacle: '#cd32f1', accent: '#ffc321' },
+    // Portrait on a phone; the board widens itself on a landscape screen.
+    aspect: '9/16',
+  },
+  {
+    slug: 'color-loop',
+    title: 'COLOR LOOP',
+    label: 'Hand-built',
+    family: 'territory capture',
+    from: join(ROOT, 'ColorLoop', 'build', 'web'),
+    blurb: 'Draw a ribbon out of your colour and loop back to claim everything inside. '
+         + 'Cut a rival’s ribbon to knock them out. Fifteen stages, an Endless mode and eight mascots.',
+    stats: 'TypeScript + Canvas · 44 KB total · 8 automated checks',
+    note: 'Starts instantly. Arrow keys, WASD, swipe or the on-screen pad. Plays offline once loaded.',
+    palette: { bg: '#fff6e1', bgAccent: '#eedcfc', ground: '#c9f67d', player: '#5bcf36', obstacle: '#ae65ef', accent: '#fd83cb' },
+    aspect: '9/16',
+  },
+  {
     slug: 'pac-maze',
     title: 'PAC MAZE',
     label: 'Hand-built',
@@ -706,8 +733,9 @@ const manifest = [
 ];
 await writeFile(join(OUT, 'games.json'), JSON.stringify(manifest, null, 2), 'utf8');
 
-// The install page. Written after the APK copy above, so it survives it.
-if (apks.size) await writeFile(join(OUT, 'apk', 'index.html'), installPage(manifest), 'utf8');
+// The install page. Written after the APK copy above, so it survives it. Only games that have an
+// APK are listed: a game published before its APK is built would otherwise get a dead link.
+if (apks.size) await writeFile(join(OUT, 'apk', 'index.html'), installPage(manifest.filter((g) => apks.has(g.slug))), 'utf8');
 
 await rm(TMP, { recursive: true, force: true });
 
