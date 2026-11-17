@@ -313,14 +313,19 @@ ${ADSENSE.client ? `<script async src="https://pagead2.googlesyndication.com/pag
   // tablets and phones and the inline unit on desktops, and AdSense rejects a unit with no width
   // ("No slot size for availableWidth=0"). A push fills the first unfilled unit in the page,
   // visible or not, so the hidden ones are taken out of the page first.
-  var units = Array.prototype.slice.call(document.querySelectorAll('ins.adsbygoogle'));
-  units.forEach(function (ins) {
-    if (ins.offsetWidth > 0) return;
-    var box = ins.parentNode;
-    if (box && box.parentNode) box.parentNode.removeChild(box);
+  //
+  // Only this page's own boxes are touched (div.ad > ins). With Auto ads on, AdSense can insert
+  // its own ins straight into <body> before this runs; treating that one's parent as an ad box
+  // removed the whole <body> and left a blank page.
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('div.ad'));
+  var live = [];
+  boxes.forEach(function (box) {
+    var ins = box.querySelector('ins.adsbygoogle');
+    if (!ins || ins.hasAttribute('data-adsbygoogle-status')) return;
+    if (ins.offsetWidth > 0) live.push(ins);
+    else if (box.parentNode) box.parentNode.removeChild(box);
   });
-  units.forEach(function (ins) {
-    if (!ins.isConnected) return;
+  live.forEach(function () {
     try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
   });
 
